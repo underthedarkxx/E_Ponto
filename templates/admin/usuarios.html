@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Usuários &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h3><i class="bi bi-people"></i> Usuários</h3>
+    <a href="{{ url_for('admin.novo_usuario') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Novo Usuário</a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if assocs %}
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>CPF</th>
+                    <th>PIS-NIS</th>
+                    <th>Papel</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in assocs %}
+                <tr>
+                    <td>{{ a.user.name }}</td>
+                    <td>{{ a.user.email }}</td>
+                    <td>{{ a.user.cpf or '—' }}</td>
+                    <td>{{ a.user.pis_nis or '—' }}</td>
+                    <td><span class="badge bg-secondary">{{ a.role.name }}</span></td>
+                    <td>
+                        {% if a.user.is_active %}
+                            <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inativo</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-center text-muted p-4">Nenhum usuário cadastrado.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

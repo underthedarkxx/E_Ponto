@@ -1,0 +1,78 @@
+# Mechanism for storing package requirements: 
+# PEP 621 – Define a estrutura basica do [project] no pyproject.toml
+# Resolution: 10-Oct-2024
+
+[build-system]
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "E_Ponto"
+# major (mudanca grande), minor (versao trabalhada), patch (correcao bug)
+version = "0.1.0"
+description = "Uma plataforma que permite bater pontos de forma atualizada e bem confiavel."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Wanderson Santana", email = "wanderson.santana@uvv.br"}
+]
+dependencies = [
+    "Flask",
+    "dotenv",
+    "flask-wtf",
+    "email-validator",
+    "flask-sqlalchemy",
+    "flask-login>=0.6",
+    "flask-bcrypt>=1.0",
+    "flask-migrate>=4.0",
+    "flask-limiter>=3.5",
+    "psycopg2-binary>=2.9",
+    "reportlab>=4.0",
+    "pyotp>=2.9",
+    "qrcode[pil]>=7.4",
+]
+
+
+[tool.delivery]
+display_name = "E_Ponto"
+company = "UVV Tecnologia"
+
+
+[project.optional-dependencies]
+dev = [
+    "ipython",
+    "black",
+    "flake8",
+    "flask-debugtoolbar >= 0.15",
+    "flask-talisman>=1.1",
+]
+
+
+test = [
+    "pytest >= 8.3",
+    "pytest-cov >= 5.0",
+    "pytest-flask",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]                         # raiz do projeto
+namespaces = true                     # permite namespace packages (recomendado na maioria dos casos modernos)
+exclude = ["tests*", "docs*"]         # exemplo de exclusao comum
+
+# Opcional: especifique explicitamente arquivos de dados (se nao usar MANIFEST.in ou setuptools-scm)
+[tool.setuptools.package-data]
+"*" = ["*.html", "*.css", "*.js", "*.json", "*.png", "*.jpg"]   # para todos os pacotes
+"views" = ["templates/*", "static/*"]
+
+#deploy = [
+#    "flit==0.1.0",
+#]

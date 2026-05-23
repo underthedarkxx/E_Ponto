@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}RH &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<h3><i class="bi bi-people"></i> Painel RH</h3>
+<p class="text-muted">{{ empresa.trade_name }}</p>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Retificações pendentes</p>
+                        <h2 class="mb-0 text-warning">{{ pendentes }}</h2>
+                    </div>
+                    <i class="bi bi-clock-history display-4 text-warning"></i>
+                </div>
+                <a href="{{ url_for('rh.retificacoes') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Batidas hoje</p>
+                        <h2 class="mb-0 text-primary">{{ total_hoje }}</h2>
+                    </div>
+                    <i class="bi bi-fingerprint display-4 text-primary"></i>
+                </div>
+                <a href="{{ url_for('rh.registros') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1">Registros suspeitos (geo)</p>
+                        <h2 class="mb-0 text-danger">{{ suspeitos }}</h2>
+                    </div>
+                    <i class="bi bi-exclamation-triangle display-4 text-danger"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h5>Ações</h5>
+        <a href="{{ url_for('rh.registros') }}" class="btn btn-outline-primary"><i class="bi bi-list-ul"></i> Ver Registros</a>
+        <a href="{{ url_for('rh.retificacoes') }}" class="btn btn-outline-warning"><i class="bi bi-pencil-square"></i> Retificações</a>
+        <a href="{{ url_for('rh.relatorios') }}" class="btn btn-outline-success"><i class="bi bi-file-earmark-arrow-down"></i> Relatórios AFD/AEJ</a>
+    </div>
+</div>
+{% endblock %}

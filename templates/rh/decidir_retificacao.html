@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}Decidir Retificação &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h3><i class="bi bi-pencil-square"></i> Decidir Retificação</h3>
+
+        <div class="card mb-3">
+            <div class="card-header">Solicitação</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Funcionário</dt><dd class="col-sm-8">{{ ret.solicitante.name }}</dd>
+                    <dt class="col-sm-4">Data da solicitação</dt><dd class="col-sm-8">{{ ret.created_at.astimezone().strftime('%d/%m/%Y %H:%M') }}</dd>
+                    <dt class="col-sm-4">NSR original</dt><dd class="col-sm-8"><span class="nsr-badge">#{{ ret.registro.nsr }}</span></dd>
+                    <dt class="col-sm-4">Data/Hora original</dt><dd class="col-sm-8">{{ ret.registro.timestamp_utc.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</dd>
+                    <dt class="col-sm-4">Tipo</dt><dd class="col-sm-8">{{ ret.registro.tipo_display }}</dd>
+                    {% if ret.novo_timestamp %}
+                    <dt class="col-sm-4">Novo timestamp proposto</dt><dd class="col-sm-8 text-primary"><strong>{{ ret.novo_timestamp.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</strong></dd>
+                    {% endif %}
+                    <dt class="col-sm-4">Motivo</dt><dd class="col-sm-8">{{ ret.motivo }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h5>Sua decisão</h5>
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.acao.label(class="form-label") }}
+                        {{ form.acao(class="form-select") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.observacao.label(class="form-label") }}
+                        {{ form.observacao(class="form-control", rows="3") }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+                    <a href="{{ url_for('rh.retificacoes') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </form>
+                <div class="alert alert-info small mt-3">
+                    <i class="bi bi-info-circle"></i> <strong>Importante:</strong> Pela Portaria 671, alterações não modificam o registro original.
+                    A aprovação registrará a decisão e a retificação como novo evento auditado.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

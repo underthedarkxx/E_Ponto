@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Solicitar Retificação &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <h3><i class="bi bi-pencil-square"></i> Solicitar Retificação</h3>
+
+        <div class="card mb-3">
+            <div class="card-header">Registro original</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">NSR</dt><dd class="col-sm-8"><span class="nsr-badge">#{{ reg.nsr }}</span></dd>
+                    <dt class="col-sm-4">Data/Hora</dt><dd class="col-sm-8">{{ reg.timestamp_utc.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</dd>
+                    <dt class="col-sm-4">Tipo</dt><dd class="col-sm-8">{{ reg.tipo_display }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.novo_timestamp.label(class="form-label") }}
+                        {{ form.novo_timestamp(class="form-control") }}
+                        <small class="text-muted">Deixe em branco se a solicitação for de anulação.</small>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.motivo.label(class="form-label") }}
+                        {{ form.motivo(class="form-control", rows="4") }}
+                    </div>
+                    <button type="submit" class="btn btn-warning">{{ form.submit.label.text }}</button>
+                    <a href="{{ url_for('funcionario.dashboard') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </form>
+                <div class="alert alert-warning small mt-3">
+                    <i class="bi bi-exclamation-triangle"></i> O registro original <strong>não será apagado</strong>.
+                    A retificação será registrada como novo evento auditado, conforme exige a Portaria 671/2021.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

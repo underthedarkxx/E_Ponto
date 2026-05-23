@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Virtualenv
+venv/
+.venv/
+env/
+
+# Banco local / instance
+instance/
+*.db
+*.sqlite3
+
+# Variaveis de ambiente (NUNCA commitar)
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / artefatos
+*.log
+build/
+dist/

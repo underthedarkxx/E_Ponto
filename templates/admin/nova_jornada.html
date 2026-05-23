@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Nova Jornada &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h3><i class="bi bi-calendar-plus"></i> Nova Jornada</h3>
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            {{ form.nome.label(class="form-label") }}
+                            {{ form.nome(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.tipo.label(class="form-label") }}
+                            {{ form.tipo(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.carga_horaria_semanal.label(class="form-label") }}
+                            {{ form.carga_horaria_semanal(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.horario_entrada.label(class="form-label") }}
+                            {{ form.horario_entrada(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.horario_saida.label(class="form-label") }}
+                            {{ form.horario_saida(class="form-control") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.intervalo_minutos.label(class="form-label") }}
+                            {{ form.intervalo_minutos(class="form-control") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.tolerancia_minutos.label(class="form-label") }}
+                            {{ form.tolerancia_minutos(class="form-control") }}
+                            <small class="text-muted">Máximo 5min por batida (CLT Art. 58 §1)</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+                    <a href="{{ url_for('admin.jornadas') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

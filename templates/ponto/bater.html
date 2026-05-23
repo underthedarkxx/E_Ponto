@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Bater Ponto &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-body text-center p-4">
+                <p class="text-muted mb-1">Horário atual do servidor</p>
+                <div class="relogio-grande" id="relogio">--:--:--</div>
+                <p class="text-muted small mt-2" id="data-hoje"></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body p-4">
+                <h5 class="mb-3"><i class="bi bi-fingerprint"></i> Registrar Ponto</h5>
+                <form method="POST" id="form-ponto">
+                    {{ form.hidden_tag() }}
+                    {{ form.latitude(id="latitude") }}
+                    {{ form.longitude(id="longitude") }}
+                    {{ form.precisao(id="precisao") }}
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.tipo.label(class="form-label") }}
+                            {{ form.tipo(class="form-select form-select-lg") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.local_trabalho_id.label(class="form-label") }}
+                            {{ form.local_trabalho_id(class="form-select form-select-lg") }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        {{ form.justificativa.label(class="form-label") }}
+                        {{ form.justificativa(class="form-control", rows="2", placeholder="(opcional)") }}
+                    </div>
+
+                    <div class="border rounded p-3 bg-light mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong><i class="bi bi-geo-alt"></i> Geolocalização</strong>
+                                <p class="text-muted small mb-0" id="geo-status">Não capturada</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="capturarLocalizacao()">
+                                <i class="bi bi-crosshair"></i> Capturar
+                            </button>
+                        </div>
+                    </div>
+
+                    {{ form.submit(class="btn btn-primary btn-lg w-100") }}
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-body p-4">
+                <h5><i class="bi bi-clock-history"></i> Suas batidas hoje</h5>
+                {% if registros_hoje %}
+                    <ul class="list-group list-group-flush">
+                        {% for r in registros_hoje %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <span class="badge bg-{% if r.tipo.value == 'entrada' %}success{% else %}warning{% endif %}">
+                                    {{ r.tipo_display }}
+                                </span>
+                                <strong class="ms-2">{{ r.timestamp_utc.astimezone().strftime('%H:%M:%S') }}</strong>
+                            </div>
+                            <a href="{{ url_for('ponto.comprovante', reg_id=r.id) }}" class="btn btn-sm btn-link"><i class="bi bi-file-text"></i></a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">Nenhuma batida registrada hoje.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3 small">
+            <i class="bi bi-info-circle"></i> O horário oficial é definido pelo <strong>servidor</strong>.
+            A geolocalização é registrada para auditoria mas <strong>não bloqueia</strong> a marcação.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function atualizarRelogio() {
+    const el = document.getElementById('relogio');
+    const dt = document.getElementById('data-hoje');
+    if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleTimeString('pt-BR');
+        if (dt) dt.textContent = now.toLocaleDateString('pt-BR', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+    }
+}
+setInterval(atualizarRelogio, 1000);
+atualizarRelogio();
+
+function capturarLocalizacao() {
+    const status = document.getElementById('geo-status');
+    if (!navigator.geolocation) {
+        status.textContent = 'Geolocalização não suportada neste navegador';
+        return;
+    }
+    status.textContent = 'Capturando...';
+    navigator.geolocation.getCurrentPosition(
+        function(pos) {
+            document.getElementById('latitude').value = pos.coords.latitude;
+            document.getElementById('longitude').value = pos.coords.longitude;
+            document.getElementById('precisao').value = pos.coords.accuracy;
+            status.innerHTML = `<i class="bi bi-check-circle text-success"></i> ` +
+                `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)} ` +
+                `(±${pos.coords.accuracy.toFixed(0)}m)`;
+        },
+        function(err) {
+            status.innerHTML = `<i class="bi bi-x-circle text-danger"></i> Não foi possível obter localização`;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+// Tenta capturar localizacao automaticamente ao abrir a pagina
+window.addEventListener('load', capturarLocalizacao);
+</script>
+{% endblock %}

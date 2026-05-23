@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Novo Local &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <h3><i class="bi bi-geo-alt"></i> Novo Local de Trabalho</h3>
+        <div class="card">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            {{ form.nome.label(class="form-label") }}
+                            {{ form.nome(class="form-control") }}
+                        </div>
+                        <div class="col-md-8">
+                            {{ form.logradouro.label(class="form-label") }}
+                            {{ form.logradouro(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.numero.label(class="form-label") }}
+                            {{ form.numero(class="form-control") }}
+                        </div>
+                        <div class="col-md-5">
+                            {{ form.cidade.label(class="form-label") }}
+                            {{ form.cidade(class="form-control") }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ form.uf.label(class="form-label") }}
+                            {{ form.uf(class="form-select") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.cep.label(class="form-label") }}
+                            {{ form.cep(class="form-control") }}
+                        </div>
+                        <div class="col-md-5">
+                            {{ form.latitude.label(class="form-label") }}
+                            {{ form.latitude(class="form-control", placeholder="-20.336") }}
+                        </div>
+                        <div class="col-md-5">
+                            {{ form.longitude.label(class="form-label") }}
+                            {{ form.longitude(class="form-control", placeholder="-40.295") }}
+                        </div>
+                        <div class="col-md-2">
+                            {{ form.raio_metros.label(class="form-label") }}
+                            {{ form.raio_metros(class="form-control") }}
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="text-muted small">
+                        <i class="bi bi-info-circle"></i> Funcionários que baterem ponto fora deste raio serão marcados como <strong>suspeitos</strong>,
+                        mas a batida não será bloqueada.
+                    </p>
+                    <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+                    <a href="{{ url_for('admin.locais') }}" class="btn btn-outline-secondary">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

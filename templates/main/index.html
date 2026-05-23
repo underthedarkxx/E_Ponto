@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard &middot; E-Ponto{% endblock %}
+
+{% block content %}
+{% if not empresa %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> Você ainda não está vinculado a nenhuma empresa.
+        Contate o administrador.
+    </div>
+{% else %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="mb-0">Bem-vindo, {{ current_user.name }}</h3>
+        <p class="text-muted mb-0">Empresa atual: <strong>{{ empresa.trade_name }}</strong> &middot; CNPJ {{ empresa.cnpj }}</p>
+    </div>
+    {% if empresas|length > 1 %}
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-building"></i> Trocar Empresa
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            {% for e in empresas %}
+            <li><a class="dropdown-item {% if e.id == empresa.id %}active{% endif %}"
+                   href="{{ url_for('main.selecionar_empresa', empresa_id=e.id) }}">{{ e.trade_name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('ponto.bater') }}" class="text-decoration-none">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-fingerprint display-3 text-primary"></i>
+                    <h5 class="mt-3 text-dark">Bater Ponto</h5>
+                    <p class="text-muted small mb-0">Registrar entrada ou saída</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('ponto.historico') }}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-list-ul display-3 text-success"></i>
+                    <h5 class="mt-3 text-dark">Meu Histórico</h5>
+                    <p class="text-muted small mb-0">Consultar batidas anteriores</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('funcionario.dashboard') }}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-person-workspace display-3 text-info"></i>
+                    <h5 class="mt-3 text-dark">Minha Área</h5>
+                    <p class="text-muted small mb-0">Solicitar retificações</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% if 'rh' in user_roles or 'admin' in user_roles or 'super_admin' in user_roles %}
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('rh.dashboard') }}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-people display-3 text-warning"></i>
+                    <h5 class="mt-3 text-dark">Painel RH</h5>
+                    <p class="text-muted small mb-0">Aprovar e relatórios</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+    {% if 'admin' in user_roles or 'super_admin' in user_roles %}
+    <div class="col-md-6 col-lg-4">
+        <a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">
+            <div class="card h-100">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-gear display-3 text-secondary"></i>
+                    <h5 class="mt-3 text-dark">Painel Admin</h5>
+                    <p class="text-muted small mb-0">Usuários, locais, jornadas</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

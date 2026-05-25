@@ -1,49 +1,75 @@
 # =====================================================================
-# make_env.py — Recria o ambiente virtual do zero
+# make_env.py — Recria o ambiente virtual do zero (multiplataforma)
 # ---------------------------------------------------------------------
 # Script utilitário (não é parte da app Flask). Apaga a pasta `venv/`
-# atual, cria uma nova, ativa e instala alguns pacotes básicos.
+# atual, cria uma nova e instala alguns pacotes básicos.
 #
 # Útil quando o ambiente "quebrou" (dependências confusas, pip
 # corrompido, etc.). NÃO instala as deps do projeto inteiro — para
 # isso use `inv install` depois.
+#
+# Esta versão usa só Python (módulos `venv` e `subprocess`), sem
+# depender de `bash`. Por isso funciona igual em Windows, Linux e Mac.
 # =====================================================================
 
 import os
+import shutil
+import subprocess
+import sys
+import venv
+from pathlib import Path
 
-# Script bash que será escrito num arquivo temporário e executado.
-# Mantemos o script aqui dentro como string para deixar o `make_env.py`
-# autocontido (não depende de um .sh externo).
-bash_script = '''#!/bin/bash
+# Pasta da venv, relativa ao diretório onde o script é executado.
+VENV = Path("venv")
 
-echo "🗑️ Apagando o ambiente virtual antigo..."
-rm -rf venv
 
-echo "🌱 Criando um novo ambiente virtual do zero..."
-python3 -m venv venv
+def main():
+    # 1) Apaga a venv antiga, se existir.
+    #    shutil.rmtree é o equivalente multiplataforma de `rm -rf`.
+    if VENV.exists():
+        print("🗑️  Apagando o ambiente virtual antigo...")
+        shutil.rmtree(VENV)
 
-echo "🔄 Ativando o ambiente..."
-# Obs.: este `source` afeta apenas o subshell do bash; o Python que
-# chamou este script não fica com a venv ativada. Para usar a venv no
-# terminal depois, rode você mesmo: `source venv/bin/activate`.
-source venv/bin/activate
+    # 2) Cria a nova venv já com pip instalado dentro dela.
+    #    venv.create substitui `python3 -m venv venv` sem depender de
+    #    qual é o nome do executável do Python no sistema.
+    print("🌱 Criando um novo ambiente virtual do zero...")
+    venv.create(VENV, with_pip=True)
 
-echo "📦 Atualizando o pip..."
-python3 -m pip install --upgrade pip
+    # 3) Descobre o caminho do pip DENTRO da venv. O layout muda por OS:
+    #    - Windows: venv\Scripts\pip.exe
+    #    - Linux/Mac: venv/bin/pip
+    #    Usar o pip da venv garante que os pacotes vão pra venv, e não
+    #    pro Python global. (Não usamos `source .../activate`: ativar a
+    #    venv só afeta o shell; chamar o pip pelo caminho tem o mesmo
+    #    efeito e funciona em qualquer sistema.)
+    if os.name == "nt":  # 'nt' == Windows
+        pip = VENV / "Scripts" / "pip.exe"
+    else:
+        pip = VENV / "bin" / "pip"
 
-echo "🚀 Instalando Flask, Seaborn, Invoke e dependências..."
-pip install flask seaborn invoke
+    # 4) Atualiza o pip e instala os pacotes básicos.
+    #    check=True faz o script parar com erro se algum comando falhar.
+    print("📦 Atualizando o pip...")
+    subprocess.run([str(pip), "install", "--upgrade", "pip"], check=True)
 
-echo "✅ Ambiente recriado e pacotes instalados com sucesso!"
-'''
+    print("🚀 Instalando Flask, Seaborn, Invoke e dependências...")
+    subprocess.run([str(pip), "install", "flask", "seaborn", "invoke"], check=True)
 
-# Salva o script em um arquivo temporário.
-with open("temp_script.sh", "w") as f:
-    f.write(bash_script)
+    # 5) Mostra como ativar a venv, com o comando certo para cada OS.
+    if os.name == "nt":
+        ativar = r"venv\Scripts\activate"
+    else:
+        ativar = "source venv/bin/activate"
 
-# Executa o script usando o bash. os.system bloqueia até o bash
-# terminar — uma alternativa mais segura seria `subprocess.run`.
-os.system("bash temp_script.sh")
+    print("✅ Ambiente recriado e pacotes instalados com sucesso!")
+    print(f"👉 Para usar a venv no terminal, rode: {ativar}")
 
-# Remove o script temporário para não deixar lixo na pasta.
-os.remove("temp_script.sh")
+
+if __name__ == "__main__":
+    # sys.exit propaga o código de erro de um subprocess que falhou.
+    try:
+        main()
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Falhou um comando do pip (código {e.returncode}).")
+        sys.exit(e.returncode)

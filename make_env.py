@@ -52,12 +52,30 @@ def main():
         python = VENV / "bin" / "python"
 
     # 4) Atualiza o pip e instala os pacotes básicos.
-    #    check=True faz o script parar com erro se algum comando falhar.
     print("📦 Atualizando o pip...")
-    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
+    # NÃO usamos check=True aqui de propósito: em várias máquinas Windows o
+    # pip se recusa a se auto-atualizar (ele fica "travado" enquanto roda e
+    # responde com "To modify pip, please run ... -m pip install --upgrade
+    # pip"). Isso NÃO é fatal — o pip que veio com a venv já funciona. Antes,
+    # com check=True, essa falha abortava o script e o `invoke` nunca era
+    # instalado, por isso o `inv` ficava "não reconhecido" logo depois.
+    upgrade = subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
+    if upgrade.returncode != 0:
+        print("⚠️  Não consegui atualizar o pip — seguindo com a versão atual (ok).")
 
     print("🚀 Instalando Flask, Seaborn, Invoke e dependências...")
+    # check=True aqui sim: se os pacotes básicos não instalarem, é erro real.
     subprocess.run([str(python), "-m", "pip", "install", "flask", "seaborn", "invoke"], check=True)
+
+    # 4.5) Garante que exista um .env.dev.
+    #      Os arquivos .env.* são ignorados pelo Git (.gitignore), então quem
+    #      baixa o projeto pelo GitHub/ZIP NÃO recebe o .env.dev — e sem ele a
+    #      app sobe sem SECRET_KEY e quebra com "no secret key was set".
+    env_dev = Path(".env.dev")
+    env_example = Path(".env.example")
+    if not env_dev.exists() and env_example.exists():
+        shutil.copy(env_example, env_dev)
+        print("📝 Criei .env.dev a partir de .env.example (ajuste se precisar).")
 
     # 5) Mostra como ativar a venv, com o comando certo para cada OS.
     if os.name == "nt":

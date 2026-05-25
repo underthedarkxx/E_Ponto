@@ -9,20 +9,65 @@
 # =====================================================================
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
+
+
+# Raiz do projeto: config/__init__.py -> config -> ext -> E_Ponto -> raiz
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Mapeia FLASK_ENV (nomes longos) para o sufixo dos arquivos .env.*
+_ENV_SUFFIX = {
+    "development": "dev",
+    "testing": "test",
+    "production": "prod",
+}
+
+
+def _load_env_file():
+    """
+    Garante que o arquivo .env.* correto seja carregado.
+
+    Quando o app sobe via `inv run/test/prod`, o tasks.py já carregou o
+    .env certo no ambiente. Mas quando alguém roda `flask run` direto,
+    ninguém carregou nada — a SECRET_KEY fica vazia e o app quebra com
+    "The session is unavailable because no secret key was set".
+
+    Aqui cobrimos os dois casos: descobrimos o ambiente por FLASK_ENV
+    (default: development) e carregamos o .env.<sufixo> correspondente.
+    Usamos override=False para NÃO sobrescrever variáveis já presentes
+    no ambiente — preservando o fluxo do `inv`, que carrega o .env antes.
+    """
+    env = os.environ.get("FLASK_ENV", "development")
+    suffix = _ENV_SUFFIX.get(env, "dev")
+    env_file = PROJECT_ROOT / f".env.{suffix}"
+
+    if env_file.exists():
+        load_dotenv(env_file, override=False)
+    else:
+        # Sem .env.<suffix>: tenta um .env genérico, se houver.
+        load_dotenv(override=False)
 
 
 def init_app(app):
     """Carrega o .env e preenche app.config com todos os parâmetros."""
 
-    # `override=True` faz com que valores do .env sobrescrevam variáveis
-    # já existentes no ambiente do sistema.
-    load_dotenv(override=True)
+    _load_env_file()
 
     # ---- Configurações gerais do Flask -------------------------------
     # SECRET_KEY: usada para assinar cookies de sessão e tokens CSRF.
     # NUNCA deve ser exposta publicamente.
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    # Falha cedo, com mensagem clara, em vez de um 500 críptico em runtime.
+    # (Em testes a SECRET_KEY costuma vir via test_config; não bloqueamos.)
+    if not app.config['SECRET_KEY'] and os.environ.get('FLASK_ENV') != 'testing':
+        raise RuntimeError(
+            "SECRET_KEY ausente. Provavelmente o arquivo .env.dev não existe "
+            "(ele é ignorado pelo Git e não vem no download do projeto).\n"
+            "Crie-o a partir do exemplo e rode novamente:\n"
+            "    Windows:    copy .env.example .env.dev\n"
+            "    Linux/Mac:  cp .env.example .env.dev"
+        )
     # DEBUG: ativa o modo de depuração (recarregamento automático,
     # mensagens de erro detalhadas). Só deve ser True em desenvolvimento.
     app.config['DEBUG'] = os.environ.get('FLASK_DEBUG') == '1'

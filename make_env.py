@@ -36,25 +36,28 @@ def main():
     print("🌱 Criando um novo ambiente virtual do zero...")
     venv.create(VENV, with_pip=True)
 
-    # 3) Descobre o caminho do pip DENTRO da venv. O layout muda por OS:
-    #    - Windows: venv\Scripts\pip.exe
-    #    - Linux/Mac: venv/bin/pip
-    #    Usar o pip da venv garante que os pacotes vão pra venv, e não
-    #    pro Python global. (Não usamos `source .../activate`: ativar a
-    #    venv só afeta o shell; chamar o pip pelo caminho tem o mesmo
-    #    efeito e funciona em qualquer sistema.)
+    # 3) Descobre o caminho do PYTHON DENTRO da venv. O layout muda por OS:
+    #    - Windows: venv\Scripts\python.exe
+    #    - Linux/Mac: venv/bin/python
+    #    Usamos o python da venv (e não o pip.exe) por dois motivos:
+    #      a) garante que os pacotes vão pra venv, não pro Python global;
+    #      b) `python -m pip` é a única forma de ATUALIZAR o próprio pip
+    #         no Windows — chamar `pip.exe install --upgrade pip` falha
+    #         porque o pip.exe fica travado enquanto roda e não pode se
+    #         sobrescrever. (`source .../activate` não é necessário:
+    #         ativar a venv só afeta o shell; chamar pelo caminho basta.)
     if os.name == "nt":  # 'nt' == Windows
-        pip = VENV / "Scripts" / "pip.exe"
+        python = VENV / "Scripts" / "python.exe"
     else:
-        pip = VENV / "bin" / "pip"
+        python = VENV / "bin" / "python"
 
     # 4) Atualiza o pip e instala os pacotes básicos.
     #    check=True faz o script parar com erro se algum comando falhar.
     print("📦 Atualizando o pip...")
-    subprocess.run([str(pip), "install", "--upgrade", "pip"], check=True)
+    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
 
     print("🚀 Instalando Flask, Seaborn, Invoke e dependências...")
-    subprocess.run([str(pip), "install", "flask", "seaborn", "invoke"], check=True)
+    subprocess.run([str(python), "-m", "pip", "install", "flask", "seaborn", "invoke"], check=True)
 
     # 5) Mostra como ativar a venv, com o comando certo para cada OS.
     if os.name == "nt":

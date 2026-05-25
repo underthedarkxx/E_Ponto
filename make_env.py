@@ -63,9 +63,15 @@ def main():
     if upgrade.returncode != 0:
         print("⚠️  Não consegui atualizar o pip — seguindo com a versão atual (ok).")
 
-    print("🚀 Instalando Flask, Seaborn, Invoke e dependências...")
-    # check=True aqui sim: se os pacotes básicos não instalarem, é erro real.
-    subprocess.run([str(python), "-m", "pip", "install", "flask", "seaborn", "invoke"], check=True)
+    print("🚀 Instalando Invoke e dotenv (pré-requisitos do `inv install`)...")
+    # check=True aqui sim: se estes não instalarem, é erro real.
+    # O `dotenv` é obrigatório porque o tasks.py faz `from dotenv import
+    # load_dotenv` no topo — ou seja, o `invoke` importa o dotenv ao carregar
+    # as tarefas. Sem ele, o PRÓPRIO `inv install` quebra na importação antes
+    # de instalar as dependências do projeto. Por isso a ordem é:
+    #   1) make_env.py  -> deixa invoke + dotenv prontos
+    #   2) inv install  -> instala o resto (Flask, SQLAlchemy, etc. do pyproject)
+    subprocess.run([str(python), "-m", "pip", "install", "invoke", "dotenv"], check=True)
 
     # 4.5) Garante que exista um .env.dev.
     #      Os arquivos .env.* são ignorados pelo Git (.gitignore), então quem
@@ -83,8 +89,10 @@ def main():
     else:
         ativar = "source venv/bin/activate"
 
-    print("✅ Ambiente recriado e pacotes instalados com sucesso!")
-    print(f"👉 Para usar a venv no terminal, rode: {ativar}")
+    print("✅ Ambiente recriado com invoke + dotenv prontos!")
+    print(f"👉 1) Ative a venv:        {ativar}")
+    print("👉 2) Instale o projeto:   inv install")
+    print("👉 3) Rode a aplicação:    inv run")
 
 
 if __name__ == "__main__":

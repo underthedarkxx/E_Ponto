@@ -1,5 +1,11 @@
+# pyright: reportCallIssue=false
 # =====================================================================
 # views/admin.py — Painel do administrador
+# ---------------------------------------------------------------------
+# A diretiva "# pyright: reportCallIssue=false" no topo silencia o
+# aviso do Pylance para construtores de modelos SQLAlchemy (ex.:
+# User(name=..., email=...)), Role(name=...), RoleUser(...)) — limitacao
+# do Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
 # ---------------------------------------------------------------------
 # Rotas para o admin gerenciar:
 #   - usuários (vincular pessoas à empresa);
@@ -22,6 +28,7 @@ from E_Ponto.models.role_user import RoleUser
 from E_Ponto.models.local_trabalho import LocalTrabalho
 from E_Ponto.models.jornada import Jornada
 from E_Ponto.utils.decorators import role_required
+from E_Ponto.utils.audit import log_action
 from E_Ponto.forms.admin import UsuarioForm, LocalTrabalhoForm, JornadaForm
 
 bp_admin = Blueprint('admin', __name__, url_prefix='/admin')
@@ -114,6 +121,15 @@ def novo_usuario():
         if not existing:
             assoc = RoleUser(user_id=user.id, business_id=empresa.id, role_id=role.id)
             db.session.add(assoc)
+        log_action(
+            'CRIAR_USUARIO', 'users', user.id,
+            dados_depois={
+                'name': user.name,
+                'email': user.email,
+                'role': form.role.data,
+                'novo': senha_temp is not None,
+            },
+        )
         db.session.commit()
 
         # Mostra a senha temporária para o admin repassar ao usuário.
@@ -161,6 +177,15 @@ def novo_local():
             raio_metros=form.raio_metros.data or 200,
         )
         db.session.add(local)
+        db.session.flush()
+        log_action(
+            'CRIAR_LOCAL', 'locais_trabalho', local.id,
+            dados_depois={
+                'nome': local.nome,
+                'cidade': local.cidade,
+                'raio_metros': local.raio_metros,
+            },
+        )
         db.session.commit()
         flash('Local de trabalho cadastrado.', 'success')
         return redirect(url_for('admin.locais'))
@@ -200,6 +225,15 @@ def nova_jornada():
             tolerancia_minutos=form.tolerancia_minutos.data or 5,
         )
         db.session.add(j)
+        db.session.flush()
+        log_action(
+            'CRIAR_JORNADA', 'jornadas', j.id,
+            dados_depois={
+                'nome': j.nome,
+                'tipo': j.tipo,
+                'carga_horaria_semanal': j.carga_horaria_semanal,
+            },
+        )
         db.session.commit()
         flash('Jornada cadastrada.', 'success')
         return redirect(url_for('admin.jornadas'))

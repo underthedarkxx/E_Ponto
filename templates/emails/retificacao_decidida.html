@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; color: #333;">
+    <h2 style="color: {% if aprovada %}#198754{% else %}#dc3545{% endif %};">
+        Retificacao {{ 'APROVADA' if aprovada else 'REJEITADA' }}
+    </h2>
+    <p>Ola, <strong>{{ solicitante.name }}</strong>!</p>
+    <p>Sua solicitacao de retificacao foi
+        <strong style="color: {% if aprovada %}#198754{% else %}#dc3545{% endif %};">
+            {{ 'aprovada' if aprovada else 'rejeitada' }}
+        </strong>.
+    </p>
+    <table style="border-collapse: collapse; width: 100%;">
+        <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Registro:</strong></td>
+            <td style="padding: 6px; border-bottom: 1px solid #eee;">NSR #{{ retificacao.registro_id }}</td></tr>
+        <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Empresa:</strong></td>
+            <td style="padding: 6px; border-bottom: 1px solid #eee;">{{ empresa.trade_name }}</td></tr>
+        <tr><td style="padding: 6px; border-bottom: 1px solid #eee;"><strong>Decidido por:</strong></td>
+            <td style="padding: 6px; border-bottom: 1px solid #eee;">{{ aprovador.name }}</td></tr>
+        {% if retificacao.observacao_aprovador %}
+        <tr><td style="padding: 6px;"><strong>Observacao:</strong></td>
+            <td style="padding: 6px;">{{ retificacao.observacao_aprovador }}</td></tr>
+        {% endif %}
+    </table>
+    <p style="margin-top: 20px;">
+        <a href="{{ url_for('funcionario.dashboard', _external=True) }}"
+           style="background: #0d6efd; color: white; padding: 10px 18px;
+                  text-decoration: none; border-radius: 4px;">
+            Acessar o sistema
+        </a>
+    </p>
+    <hr style="margin-top: 30px;">
+    <p style="font-size: 11px; color: #888;">E-Ponto &mdash; sistema de registro de ponto eletronico.</p>
+</body>
+</html>

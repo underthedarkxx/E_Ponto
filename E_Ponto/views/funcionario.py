@@ -1,5 +1,10 @@
+# pyright: reportCallIssue=false
 # =====================================================================
 # views/funcionario.py — Painel do funcionário
+# ---------------------------------------------------------------------
+# A diretiva "# pyright: reportCallIssue=false" silencia o aviso do
+# Pylance para construtores de modelos SQLAlchemy (Retificacao(...)).
+# E' uma limitacao do Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
 # ---------------------------------------------------------------------
 # Rotas voltadas ao funcionário "comum":
 #   - Dashboard com batidas do dia e histórico de retificações próprias;
@@ -19,6 +24,7 @@ from E_Ponto.models.business import Business
 from E_Ponto.models.registro import Registro
 from E_Ponto.models.retificacao import Retificacao, StatusRetificacao
 from E_Ponto.forms.rh import RetificacaoForm
+from E_Ponto.utils.audit import log_action
 
 bp_funcionario = Blueprint('funcionario', __name__, url_prefix='/funcionario')
 
@@ -81,6 +87,15 @@ def solicitar_retificacao(reg_id):
             status=StatusRetificacao.PENDENTE,
         )
         db.session.add(ret)
+        db.session.flush()
+        log_action(
+            'SOLICITAR_RETIFICACAO', 'retificacoes', ret.id,
+            dados_depois={
+                'registro_id': reg.id,
+                'novo_timestamp': form.novo_timestamp.data.isoformat() if form.novo_timestamp.data else None,
+                'motivo': form.motivo.data,
+            },
+        )
         db.session.commit()
         flash('Solicitação enviada para análise do RH.', 'success')
         return redirect(url_for('funcionario.dashboard'))

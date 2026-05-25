@@ -1,0 +1,17 @@
+Ola, {{ solicitante.name }}!
+
+Sua solicitacao de retificacao foi {{ 'APROVADA' if aprovada else 'REJEITADA' }}.
+
+Detalhes:
+- Registro: NSR #{{ retificacao.registro_id }}
+- Empresa: {{ empresa.trade_name }}
+- Decidido por: {{ aprovador.name }}
+{% if retificacao.observacao_aprovador %}
+- Observacao: {{ retificacao.observacao_aprovador }}
+{% endif %}
+
+Acesse o sistema para mais detalhes:
+{{ url_for('funcionario.dashboard', _external=True) }}
+
+--
+E-Ponto

@@ -77,6 +77,14 @@ def create_app(test_config=None):
     init_migrate(app)
 
     # -----------------------------------------------------------------
+    # 4.5) E-mail (Flask-Mail)
+    # -----------------------------------------------------------------
+    # Em dev, MAIL_SUPPRESS_SEND=True faz logar no console.
+    # Em prod, envia de verdade via SMTP configurado no .env.
+    from E_Ponto.ext.mail import init_app as init_mail
+    init_mail(app)
+
+    # -----------------------------------------------------------------
     # 5) Extensões que NÃO devem rodar em modo de teste
     # -----------------------------------------------------------------
     # CSRF e Rate Limiter atrapalham os testes automatizados, então

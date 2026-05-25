@@ -1,5 +1,11 @@
+# pyright: reportCallIssue=false
 # =====================================================================
 # utils/nsr.py — Geração atômica do NSR por empresa
+# ---------------------------------------------------------------------
+# A diretiva "# pyright: reportCallIssue=false" no topo silencia o
+# aviso do Pylance para construtores de modelos SQLAlchemy (ex.:
+# NsrSequencia(empresa_id=..., ultimo_nsr=...)) — limitacao do
+# Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
 # ---------------------------------------------------------------------
 # O NSR (Número Sequencial de Registro) deve ser único e contínuo
 # dentro de cada empresa. Se duas batidas acontecem ao mesmo tempo

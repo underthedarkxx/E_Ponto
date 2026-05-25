@@ -6,7 +6,7 @@
 # começam com /auth/.
 # =====================================================================
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, make_response, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 import pyotp        # gera e verifica códigos TOTP (RFC 6238)
@@ -134,4 +134,12 @@ def logout():
     logout_user()       # Remove o user_id do cookie de sessão.
     session.clear()     # Limpa qualquer outro dado guardado (empresa_id, etc.).
     flash('Voce saiu da sessao.', 'info')
-    return redirect(url_for('auth.login'))
+
+    # IMPORTANTE: logout_user() nao apaga o cookie "remember-me" sozinho
+    # quando o usuario logou com "lembrar de mim". Sem apagar esse cookie,
+    # o Flask-Login reautentica o usuario na proxima requisicao e ele
+    # volta pra home automaticamente (parecendo que o logout nao funcionou).
+    response = make_response(redirect(url_for('auth.login')))
+    remember_cookie = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
+    response.delete_cookie(remember_cookie)
+    return response

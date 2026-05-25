@@ -9,7 +9,7 @@
 #     Portaria 671/2021.
 # =====================================================================
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, session, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session, send_file, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, date
 from io import BytesIO
@@ -21,9 +21,14 @@ from E_Ponto.models.registro import Registro
 from E_Ponto.models.retificacao import Retificacao, StatusRetificacao
 from E_Ponto.models.user import User
 from E_Ponto.models.role_user import RoleUser
+from E_Ponto.models.audit_log import AuditLog
 from E_Ponto.utils.decorators import role_required
 from E_Ponto.utils.afd import gerar_afd   # gera arquivo AFD (formato texto)
 from E_Ponto.utils.aej import gerar_aej   # gera arquivo AEJ (formato texto)
+from E_Ponto.utils.audit import log_action
+from E_Ponto.utils.mail import send_notification
+from E_Ponto.utils.banco_horas import calcular_saldo_mes, format_min
+from E_Ponto.models.jornada import Jornada
 from E_Ponto.forms.rh import AprovarRetificacaoForm
 
 bp_rh = Blueprint('rh', __name__, url_prefix='/rh')
@@ -143,17 +148,134 @@ def decidir_retificacao(ret_id):
         ret.observacao_aprovador = form.observacao.data
         ret.aprovado_at = datetime.now(timezone.utc)
 
+        # Estado anterior pro audit log (capturar ANTES da mudanca).
+        status_antes = ret.status.value
+
         # A escolha do <select> determina o novo status.
         if form.acao.data == 'aprovar':
             ret.status = StatusRetificacao.APROVADA
+            acao_audit = 'APROVAR_RETIFICACAO'
             flash('Retificação aprovada.', 'success')
         else:
             ret.status = StatusRetificacao.REJEITADA
+            acao_audit = 'REJEITAR_RETIFICACAO'
             flash('Retificação rejeitada.', 'warning')
+
+        log_action(
+            acao_audit, 'retificacoes', ret.id,
+            dados_antes={'status': status_antes},
+            dados_depois={
+                'status': ret.status.value,
+                'observacao': form.observacao.data,
+                'aprovador_id': current_user.id,
+            },
+        )
         db.session.commit()
+
+        # Notifica o solicitante por e-mail (em dev so loga no console).
+        # Erro de envio nao deve impedir o fluxo: try/except amplo.
+        try:
+            solicitante = User.query.get(ret.solicitante_id)
+            if solicitante and solicitante.email:
+                send_notification(
+                    to=solicitante.email,
+                    subject=f'[E-Ponto] Retificacao {ret.status.value}',
+                    template='retificacao_decidida',
+                    solicitante=solicitante,
+                    aprovador=current_user,
+                    empresa=empresa,
+                    retificacao=ret,
+                    aprovada=(ret.status == StatusRetificacao.APROVADA),
+                )
+        except Exception as e:
+            current_app.logger.warning(f'Falha ao enviar email de retificacao: {e}')
+
         return redirect(url_for('rh.retificacoes'))
     return render_template('rh/decidir_retificacao.html',
                            empresa=empresa, ret=ret, form=form)
+
+
+@bp_rh.route('/auditoria')
+@login_required
+@role_required('rh', 'admin', 'super_admin')
+def auditoria():
+    """Lista o audit log da empresa com filtros (acao e usuario)."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+
+    page = request.args.get('page', 1, type=int)
+    acao_filtro = request.args.get('acao')
+    user_id_filtro = request.args.get('user_id', type=int)
+
+    q = AuditLog.query.filter_by(empresa_id=empresa.id)
+    if acao_filtro:
+        q = q.filter_by(acao=acao_filtro)
+    if user_id_filtro:
+        q = q.filter_by(user_id=user_id_filtro)
+
+    logs = q.order_by(AuditLog.created_at.desc()).paginate(page=page, per_page=50)
+
+    # Acoes distintas para popular o filtro do template.
+    acoes_distintas = [
+        a[0] for a in db.session.query(AuditLog.acao)
+        .filter_by(empresa_id=empresa.id)
+        .distinct().order_by(AuditLog.acao).all()
+    ]
+
+    # Funcionarios da empresa para o filtro por usuario.
+    funcionarios = (User.query
+                    .join(RoleUser, RoleUser.user_id == User.id)
+                    .filter(RoleUser.business_id == empresa.id)
+                    .order_by(User.name)
+                    .all())
+
+    return render_template('rh/auditoria.html',
+                           empresa=empresa,
+                           logs=logs,
+                           acoes=acoes_distintas,
+                           funcionarios=funcionarios,
+                           acao_filtro=acao_filtro,
+                           user_id_filtro=user_id_filtro)
+
+
+@bp_rh.route('/banco-horas')
+@login_required
+@role_required('rh', 'admin', 'super_admin')
+def banco_horas():
+    """Banco de horas: saldo mensal por funcionario."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+
+    hoje = date.today()
+    user_id = request.args.get('user_id', type=int)
+    ano = request.args.get('ano', hoje.year, type=int)
+    mes = request.args.get('mes', hoje.month, type=int)
+
+    funcionarios = (User.query
+                    .join(RoleUser, RoleUser.user_id == User.id)
+                    .filter(RoleUser.business_id == empresa.id)
+                    .order_by(User.name)
+                    .all())
+
+    resultado = None
+    funcionario_sel = None
+    if user_id:
+        funcionario_sel = User.query.get(user_id)
+        # Pega a primeira jornada ativa da empresa como referencia
+        # (no futuro: pegar a jornada vinculada ao funcionario via Escala).
+        jornada = Jornada.query.filter_by(empresa_id=empresa.id, ativo=True).first()
+        resultado = calcular_saldo_mes(user_id, empresa.id, ano, mes, jornada)
+
+    return render_template('rh/banco_horas.html',
+                           empresa=empresa,
+                           funcionarios=funcionarios,
+                           funcionario_sel=funcionario_sel,
+                           resultado=resultado,
+                           ano=ano,
+                           mes=mes,
+                           format_min=format_min)
 
 
 @bp_rh.route('/relatorios')

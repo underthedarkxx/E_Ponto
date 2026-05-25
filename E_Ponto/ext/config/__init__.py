@@ -29,11 +29,15 @@ def init_app(app):
 
     # ---- Configurações de e-mail (Flask-Mail / SMTP) -----------------
     app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
-    app.config['MAIL_PORT'] = os.environ.get('MAIL_PORT')
-    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS') == 'True'
+    # MAIL_PORT precisa ser int. Default 587 (TLS).
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', '587'))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@eponto.local')
+    # MAIL_SUPPRESS_SEND=True: nao envia de verdade, so loga.
+    # Util em dev/test para nao precisar de SMTP configurado.
+    app.config['MAIL_SUPPRESS_SEND'] = os.environ.get('MAIL_SUPPRESS_SEND', 'True') == 'True'
 
     # ---- Banco de dados ---------------------------------------------
     # Por padrão usa SQLite com arquivo `eponto.db`.

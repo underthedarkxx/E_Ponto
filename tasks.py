@@ -1,5 +1,12 @@
+# pyright: reportCallIssue=false
 # =====================================================================
 # tasks.py — Tarefas do Invoke (semelhante a um Makefile)
+# ---------------------------------------------------------------------
+# A linha "# pyright: reportCallIssue=false" no topo desativa, somente
+# neste arquivo, o aviso do Pylance sobre os construtores dos modelos
+# do Flask-SQLAlchemy (ex.: User(name=...), Business(corporate_name=...)).
+# O Pylance nao consegue inferir os parametros desses construtores a
+# partir dos campos Mapped[...]; o codigo funciona em runtime.
 # ---------------------------------------------------------------------
 # Invoke é uma biblioteca que transforma funções Python em comandos
 # de linha. Cada função decorada com @task vira um subcomando do `inv`:
@@ -158,6 +165,10 @@ def seed(c):
             db.session.add(admin)
             db.session.flush()
             print("[SEED] Super admin criado: admin@eponto.com / admin123")
+        # Guarda de runtime: ao contrario de assert, NUNCA e' removido
+        # quando o Python roda com -O (modo otimizado / producao).
+        if admin is None:
+            raise RuntimeError("Falha ao criar/recuperar super admin no seed.")
 
         # ---- Cria empresa demonstração ------------------------------
         empresa = Business.query.filter_by(cnpj="00000000000000").first()
@@ -174,9 +185,16 @@ def seed(c):
             db.session.add(empresa)
             db.session.flush()
             print(f"[SEED] Empresa criada: {empresa.trade_name}")
+        if empresa is None:
+            raise RuntimeError("Falha ao criar/recuperar empresa demo no seed.")
 
         # ---- Vincula admin à empresa como super_admin ---------------
         role_admin = Role.query.filter_by(name="super_admin").first()
+        if role_admin is None:
+            raise RuntimeError(
+                "Role 'super_admin' nao foi criado. "
+                "Verifique o loop de papeis no inicio do seed."
+            )
         if not RoleUser.query.filter_by(user_id=admin.id, business_id=empresa.id, role_id=role_admin.id).first():
             db.session.add(RoleUser(user_id=admin.id, business_id=empresa.id, role_id=role_admin.id))
 
@@ -194,6 +212,8 @@ def seed(c):
             db.session.add(func)
             db.session.flush()
             role_func = Role.query.filter_by(name="funcionario").first()
+            if role_func is None:
+                raise RuntimeError("Role 'funcionario' nao foi criado.")
             db.session.add(RoleUser(user_id=func.id, business_id=empresa.id, role_id=role_func.id))
             print("[SEED] Funcionario criado: joao@eponto.com / joao123")
 

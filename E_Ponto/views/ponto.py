@@ -1,5 +1,10 @@
+# pyright: reportCallIssue=false
 # =====================================================================
 # views/ponto.py — Rotas para bater ponto e ver histórico
+# ---------------------------------------------------------------------
+# A diretiva "# pyright: reportCallIssue=false" silencia o aviso do
+# Pylance para construtores de modelos SQLAlchemy (Registro(...)) —
+# limitacao do Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
 # ---------------------------------------------------------------------
 # É o "coração" funcional do sistema. Contém a lógica de:
 #   - registrar uma batida com geofencing + hash em cadeia;
@@ -18,6 +23,7 @@ from E_Ponto.models.registro import Registro, TipoRegistro
 from E_Ponto.models.local_trabalho import LocalTrabalho
 from E_Ponto.utils.nsr import get_next_nsr           # gerador de NSR atômico
 from E_Ponto.utils.hashing import calcular_hash      # SHA-256 dos campos
+from E_Ponto.utils.audit import log_action           # helper de audit log
 from E_Ponto.utils.geo import verificar_geofence     # checa lat/lon vs raio
 from E_Ponto.utils.pdf import gerar_comprovante      # monta o PDF
 from E_Ponto.forms.ponto import BaterPontoForm
@@ -106,6 +112,17 @@ def bater():
             hash_anterior=hash_anterior,
         )
         db.session.add(reg)
+        db.session.flush()  # garante reg.id antes do audit
+        log_action(
+            'CRIAR_REGISTRO', 'registros', reg.id,
+            dados_depois={
+                'nsr': nsr,
+                'tipo': tipo.value,
+                'timestamp_utc': now_utc.isoformat(),
+                'suspeito_geo': suspeito,
+                'local_trabalho_id': local_id,
+            },
+        )
         db.session.commit()
 
         # Feedback ao usuário via mensagens flash.

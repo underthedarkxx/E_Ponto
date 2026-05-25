@@ -8,11 +8,28 @@
 # =====================================================================
 
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+
+
+# Base customizada herdando de DeclarativeBase.
+# ----------------------------------------------------------------------
+# Por que precisamos disso?
+#   O Flask-SQLAlchemy 3.1+ aceita uma classe base personalizada via
+#   `model_class=`. Quando essa base herda de DeclarativeBase (SQLAlchemy
+#   2.0+), o Pylance consegue ler os campos `Mapped[...]` dos modelos e
+#   inferir automaticamente os parâmetros do construtor.
+#
+#   Sem isso, o `db.Model` padrão é "destipado" e o Pylance acusa
+#   "Nenhum parâmetro chamado 'corporate_name'" em chamadas como
+#   `Business(corporate_name="...", ...)`, mesmo o código rodando.
+class Base(DeclarativeBase):
+    pass
+
 
 # Singleton da extensão. Os modelos importam este objeto:
 #     from E_Ponto.ext.db import db
 #     class Foo(db.Model): ...
-db = SQLAlchemy()
+db = SQLAlchemy(model_class=Base)
 
 
 def init_app(app):

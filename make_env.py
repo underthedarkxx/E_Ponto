@@ -73,15 +73,24 @@ def main():
     #   2) inv install  -> instala o resto (Flask, SQLAlchemy, etc. do pyproject)
     subprocess.run([str(python), "-m", "pip", "install", "invoke", "dotenv"], check=True)
 
-    # 4.5) Garante que exista um .env.dev.
-    #      Os arquivos .env.* são ignorados pelo Git (.gitignore), então quem
-    #      baixa o projeto pelo GitHub/ZIP NÃO recebe o .env.dev — e sem ele a
-    #      app sobe sem SECRET_KEY e quebra com "no secret key was set".
-    env_dev = Path(".env.dev")
-    env_example = Path(".env.example")
-    if not env_dev.exists() and env_example.exists():
-        shutil.copy(env_example, env_dev)
-        print("📝 Criei .env.dev a partir de .env.example (ajuste se precisar).")
+    # 4.5) Garante que existam os arquivos .env.{dev,test,prod}.
+    #      Os .env.* reais são ignorados pelo Git (.gitignore), então quem
+    #      baixa o projeto pelo GitHub/ZIP NÃO os recebe — só os *.example.
+    #      Sem .env.dev a app sobe sem SECRET_KEY e quebra ("no secret key
+    #      was set"); sem .env.test / .env.prod, o `inv test` e o `inv prod`
+    #      quebram com FileNotFoundError ao carregar o ambiente.
+    #      Mapa: arquivo final -> arquivo de exemplo de origem.
+    env_pairs = {
+        ".env.dev": ".env.example",
+        ".env.test": ".env.test.example",
+        ".env.prod": ".env.prod.example",
+    }
+    for destino, exemplo in env_pairs.items():
+        destino_p = Path(destino)
+        exemplo_p = Path(exemplo)
+        if not destino_p.exists() and exemplo_p.exists():
+            shutil.copy(exemplo_p, destino_p)
+            print(f"📝 Criei {destino} a partir de {exemplo} (ajuste se precisar).")
 
     # 5) Mostra como ativar a venv, com o comando certo para cada OS.
     if os.name == "nt":

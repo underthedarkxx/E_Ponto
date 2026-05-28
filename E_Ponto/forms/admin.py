@@ -6,9 +6,12 @@
 # template (admin/novo_*.html, admin/usuarios.html, etc.).
 # =====================================================================
 
+from datetime import date
+
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, SelectField, BooleanField, SubmitField,
-                     DecimalField, IntegerField, TimeField)
+                     DecimalField, IntegerField, TimeField, DateField)
 from wtforms.validators import DataRequired, Optional, Length, Email
 
 
@@ -29,12 +32,27 @@ class UsuarioForm(FlaskForm):
     cpf = StringField('CPF', validators=[Optional(), Length(max=15)])
     pis_nis = StringField('PIS/NIS', validators=[Optional(), Length(max=15)])
     phone = StringField('Telefone', validators=[Optional(), Length(max=15)])
+    # Cargo/função contratual do funcionário.
+    cargo = StringField('Cargo', validators=[Optional(), Length(max=80)])
+    # Data de admissão: a contagem de ponto (faltas/horas esperadas) só
+    # começa a partir dela. Se vazia, a view assume o dia do cadastro.
+    data_admissao = DateField('Data de admissão', validators=[Optional()],
+                              default=date.today)
     # Lista pré-definida de papéis. O valor (lado esquerdo da tupla)
     # é o que vai pro banco; o label (direita) é o que aparece no HTML.
     role = SelectField('Papel', choices=[
         ('funcionario', 'Funcionario'),
         ('rh', 'RH'),
         ('admin', 'Administrador'),
+    ])
+    # Jornada contratual (preenchida na view com as jornadas da empresa).
+    # 0 = "sem jornada definida". coerce=int converte a string do <select>.
+    jornada_id = SelectField('Jornada (horário contratual)', coerce=int,
+                             validators=[Optional()])
+    # Foto de perfil opcional (jpg/png). FileAllowed bloqueia outros tipos.
+    photo = FileField('Foto (opcional)', validators=[
+        Optional(),
+        FileAllowed(['jpg', 'jpeg', 'png'], 'Apenas imagens JPG ou PNG.'),
     ])
     is_active = BooleanField('Ativo', default=True)
     submit = SubmitField('Salvar')

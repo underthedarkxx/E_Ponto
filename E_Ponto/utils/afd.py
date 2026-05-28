@@ -13,6 +13,8 @@
 from datetime import datetime, timezone
 from io import StringIO
 
+from E_Ponto.utils.tz import to_local
+
 
 def gerar_afd(empresa, registros, data_inicio, data_fim) -> str:
     """
@@ -61,14 +63,16 @@ def gerar_afd(empresa, registros, data_inicio, data_fim) -> str:
     # O AFD diferencia: 3 = entrada/inclusão, 4 = saída.
     tipo_map = {
         'entrada': '3',
+        'retorno_almoco': '3',
+        'saida_almoco': '4',
         'saida': '4',
         'inclusao': '3',
         'alteracao': '3',
     }
     for idx, reg in enumerate(registros, start=1):
-        # astimezone() sem argumento converte UTC -> timezone local
-        # (definido pelo SO onde o servidor roda).
-        ts = reg.timestamp_utc.astimezone()
+        # Converte UTC -> timezone local (definido pelo SO). to_local
+        # trata valores "naive" do SQLite como UTC (ver utils/tz.py).
+        ts = to_local(reg.timestamp_utc)
         tipo_evento = tipo_map.get(reg.tipo.value, '3')
         pis = reg.user.pis_nis or reg.user.cpf or ''
         linha(

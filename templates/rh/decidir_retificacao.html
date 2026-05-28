@@ -11,12 +11,12 @@
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Funcionário</dt><dd class="col-sm-8">{{ ret.solicitante.name }}</dd>
-                    <dt class="col-sm-4">Data da solicitação</dt><dd class="col-sm-8">{{ ret.created_at.astimezone().strftime('%d/%m/%Y %H:%M') }}</dd>
+                    <dt class="col-sm-4">Data da solicitação</dt><dd class="col-sm-8">{{ ret.created_at|localdt('%d/%m/%Y %H:%M') }}</dd>
                     <dt class="col-sm-4">NSR original</dt><dd class="col-sm-8"><span class="nsr-badge">#{{ ret.registro.nsr }}</span></dd>
-                    <dt class="col-sm-4">Data/Hora original</dt><dd class="col-sm-8">{{ ret.registro.timestamp_utc.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</dd>
+                    <dt class="col-sm-4">Data/Hora original</dt><dd class="col-sm-8">{{ ret.registro.timestamp_utc|localdt('%d/%m/%Y %H:%M:%S') }}</dd>
                     <dt class="col-sm-4">Tipo</dt><dd class="col-sm-8">{{ ret.registro.tipo_display }}</dd>
                     {% if ret.novo_timestamp %}
-                    <dt class="col-sm-4">Novo timestamp proposto</dt><dd class="col-sm-8 text-primary"><strong>{{ ret.novo_timestamp.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</strong></dd>
+                    <dt class="col-sm-4">Novo timestamp proposto</dt><dd class="col-sm-8 text-primary"><strong>{{ ret.novo_timestamp|localdt('%d/%m/%Y %H:%M:%S') }}</strong></dd>
                     {% endif %}
                     <dt class="col-sm-4">Motivo</dt><dd class="col-sm-8">{{ ret.motivo }}</dd>
                 </dl>

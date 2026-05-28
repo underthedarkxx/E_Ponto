@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Erro interno &middot; E-Ponto{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 text-center py-5">
+        <i class="bi bi-exclamation-octagon" style="font-size: 4rem; color: #dc3545;"></i>
+        <h1 class="display-4 fw-bold mt-3">500</h1>
+        <h4 class="text-muted">Erro interno do servidor</h4>
+        <p class="text-muted">
+            Algo deu errado ao processar sua solicitação. O erro foi
+            registrado e nossa equipe vai analisar. Tente novamente em
+            alguns instantes.
+        </p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary mt-2">
+            <i class="bi bi-house"></i> Voltar ao início
+        </a>
+    </div>
+</div>
+{% endblock %}

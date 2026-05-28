@@ -13,6 +13,7 @@ import pyotp        # gera e verifica códigos TOTP (RFC 6238)
 import qrcode       # gera o QR Code que é escaneado pelo app autenticador
 import io
 import base64
+from urllib.parse import urlparse
 from E_Ponto.models.user import User
 from E_Ponto.forms.auth import LoginForm, VerifyTotpForm, SetupTotpForm
 
@@ -20,6 +21,45 @@ from E_Ponto.forms.auth import LoginForm, VerifyTotpForm, SetupTotpForm
 bp_auth = Blueprint('auth', __name__, url_prefix='/auth')
 # Bcrypt é inicializado em views/__init__.py via bcrypt.init_app(app).
 bcrypt = Bcrypt()
+
+
+def _destino_seguro(destino):
+    """Valida o parâmetro ?next= para evitar open redirect (CWE-601).
+
+    Só aceita caminhos LOCAIS (ex.: '/ponto/historico'). Recusa URLs
+    absolutas ('https://evil.com') e protocol-relative ('//evil.com'),
+    que poderiam mandar o usuário recém-logado para um site externo
+    de phishing. Em caso de destino inseguro, retorna None.
+    """
+    if not destino:
+        return None
+    # '//evil.com' é interpretado pelo navegador como URL externa.
+    if destino.startswith('//') or '\\' in destino:
+        return None
+    parsed = urlparse(destino)
+    # Sem esquema (http/https) e sem domínio = caminho local relativo.
+    if parsed.scheme or parsed.netloc:
+        return None
+    if not destino.startswith('/'):
+        return None
+    return destino
+
+
+def _senha_confere(pw_hash, senha):
+    """Compara senha x hash sem nunca lançar exceção.
+
+    O bcrypt aceita no máximo 72 bytes e, nas versões novas, lança
+    ValueError para entradas maiores. Sem este guard, mandar uma senha
+    gigante na tela de login derrubaria a request com erro 500 (uma
+    porta para ataque de disponibilidade). Aqui tratamos qualquer
+    senha inválida/longa como simplesmente "não confere".
+    """
+    if not pw_hash or not senha:
+        return False
+    try:
+        return bcrypt.check_password_hash(pw_hash, senha)
+    except ValueError:
+        return False
 
 
 @bp_auth.route('/login', methods=['GET', 'POST'])
@@ -37,7 +77,7 @@ def login():
         # Confere se o usuário existe, tem senha cadastrada e se o hash
         # bate com a senha digitada (bcrypt.check_password_hash faz a
         # comparação em tempo constante para evitar timing attacks).
-        if user and user.password and bcrypt.check_password_hash(user.password, form.password.data):
+        if user and _senha_confere(user.password, form.password.data):
             # Conta desativada não pode entrar.
             if not user.is_active:
                 flash('Conta desativada. Contate o administrador.', 'danger')
@@ -54,7 +94,7 @@ def login():
             login_user(user, remember=form.remember.data)
             # Suporte ao parâmetro ?next= (quando o usuário tentou
             # acessar uma página protegida antes de logar).
-            next_page = request.args.get('next')
+            next_page = _destino_seguro(request.args.get('next'))
             return redirect(next_page or url_for('main.index'))
 
         # Credencial inválida — mensagem genérica para não revelar se

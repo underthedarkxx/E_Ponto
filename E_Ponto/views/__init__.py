@@ -20,6 +20,29 @@ from E_Ponto.views.ponto import bp_ponto
 from E_Ponto.views.admin import bp_admin
 from E_Ponto.views.rh import bp_rh
 from E_Ponto.views.funcionario import bp_funcionario
+from E_Ponto.utils.tz import to_local, fmt_local
+
+from flask import render_template
+
+
+def _register_error_handlers(app):
+    """Páginas de erro amigáveis (mantêm o visual do sistema)."""
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('errors/403.html'), 403
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return render_template('errors/404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        # Desfaz qualquer transação meio-aberta para que a sessão volte
+        # a um estado utilizável (o navbar do template consulta o banco).
+        from E_Ponto.ext.db import db
+        db.session.rollback()
+        app.logger.exception('Erro interno (500)')
+        return render_template('errors/500.html'), 500
 
 
 def init_app(app):
@@ -30,6 +53,12 @@ def init_app(app):
     # configurações como o SALT do bcrypt.
     bcrypt.init_app(app)
 
+    # Filtros Jinja para exibir horarios em fuso local (UTC -> local).
+    #   {{ dt|localtime }}        -> objeto datetime aware no fuso local
+    #   {{ dt|localdt('%H:%M') }} -> string ja formatada
+    app.add_template_filter(to_local, 'localtime')
+    app.add_template_filter(fmt_local, 'localdt')
+
     # Registrar = "ligar" o Blueprint ao Flask. A partir daqui as URLs
     # de cada um ficam ativas (/auth/..., /ponto/..., /admin/...).
     app.register_blueprint(bp_auth)
@@ -38,5 +67,8 @@ def init_app(app):
     app.register_blueprint(bp_admin)
     app.register_blueprint(bp_rh)
     app.register_blueprint(bp_funcionario)
+
+    # Páginas de erro 403/404/500 customizadas.
+    _register_error_handlers(app)
 
     app.logger.info("Blueprints registrados: auth, main, ponto, admin, rh, funcionario")

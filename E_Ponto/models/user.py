@@ -6,7 +6,7 @@
 # =====================================================================
 
 from typing import List, Optional, TYPE_CHECKING
-from datetime import datetime
+from datetime import datetime, date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import func
 from flask_login import UserMixin
@@ -39,6 +39,12 @@ class User(UserMixin, db.Model):
     # Email é único: ninguém pode se cadastrar duas vezes com o mesmo.
     email: Mapped[str] = mapped_column(db.String(100), unique=True, index=True)
     phone: Mapped[Optional[str]] = mapped_column(db.String(15))
+    # Cargo/função do funcionário (ex.: "Analista de RH", "Vendedor").
+    cargo: Mapped[Optional[str]] = mapped_column(db.String(80))
+    # Data de admissão: a partir de quando o funcionário passa a "contar"
+    # ponto. Dias anteriores a ela NÃO geram falta nem horas esperadas
+    # (ver utils/banco_horas.py). Default: o dia do cadastro.
+    data_admissao: Mapped[Optional[date]] = mapped_column(db.Date)
     # Marca quando o usuário confirmou o email; None = ainda não confirmou.
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(db.DateTime(timezone=True))
     # Caminho da foto de perfil (relativo ao /static).

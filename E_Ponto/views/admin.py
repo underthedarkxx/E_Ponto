@@ -15,10 +15,14 @@
 # Todas as rotas são protegidas por @role_required('admin', 'super_admin').
 # =====================================================================
 
-from flask import Blueprint, render_template, redirect, url_for, flash, session
+from flask import (Blueprint, render_template, redirect, url_for, flash,
+                   session, current_app)
 from flask_login import login_required
 from flask_bcrypt import generate_password_hash
+from werkzeug.utils import secure_filename
 import secrets  # gera senhas/temporais criptograficamente seguras
+import os
+from datetime import date
 
 from E_Ponto.ext.db import db
 from E_Ponto.models.business import Business
@@ -27,9 +31,28 @@ from E_Ponto.models.role import Role
 from E_Ponto.models.role_user import RoleUser
 from E_Ponto.models.local_trabalho import LocalTrabalho
 from E_Ponto.models.jornada import Jornada
+from E_Ponto.models.escala import EscalaFuncionario
 from E_Ponto.utils.decorators import role_required
 from E_Ponto.utils.audit import log_action
 from E_Ponto.forms.admin import UsuarioForm, LocalTrabalhoForm, JornadaForm
+
+
+def _salvar_foto(file_storage) -> str | None:
+    """Salva a foto enviada em static/uploads/avatars e retorna o caminho
+    relativo a /static (ou None se nada foi enviado)."""
+    if not file_storage or not getattr(file_storage, 'filename', ''):
+        return None
+    # Nome seguro + sufixo aleatório para evitar colisões/sobrescrita.
+    nome = secure_filename(file_storage.filename)
+    base, ext = os.path.splitext(nome)
+    nome_final = f"{base}_{secrets.token_hex(4)}{ext.lower()}"
+    pasta_rel = os.path.join('uploads', 'avatars')
+    pasta_abs = os.path.join(current_app.static_folder, pasta_rel)
+    os.makedirs(pasta_abs, exist_ok=True)
+    file_storage.save(os.path.join(pasta_abs, nome_final))
+    # Caminho relativo usado em url_for('static', filename=...).
+    return os.path.join(pasta_rel, nome_final).replace('\\', '/')
+
 
 bp_admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -83,8 +106,15 @@ def novo_usuario():
     if not empresa:
         return redirect(url_for('main.index'))
     form = UsuarioForm()
+    # Popula o <select> de jornadas com as jornadas ativas da empresa.
+    # 0 = "sem jornada definida".
+    jornadas = Jornada.query.filter_by(empresa_id=empresa.id, ativo=True).order_by(Jornada.nome).all()
+    form.jornada_id.choices = [(0, 'Sem jornada definida')] + [(j.id, j.nome) for j in jornadas]
+
     if form.validate_on_submit():
         email = form.email.data.lower()
+        # Foto enviada (se houver) — salva no static e guarda o caminho.
+        foto_path = _salvar_foto(form.photo.data)
         # Tenta achar usuário com esse email — pode já existir em outra empresa.
         user = User.query.filter_by(email=email).first()
         senha_temp = None
@@ -98,6 +128,10 @@ def novo_usuario():
                 cpf=form.cpf.data or None,
                 pis_nis=form.pis_nis.data or None,
                 phone=form.phone.data or None,
+                cargo=form.cargo.data or None,
+                photo=foto_path,
+                # Data de admissão: usa a do formulário ou, se vazia, hoje.
+                data_admissao=form.data_admissao.data or date.today(),
                 # generate_password_hash retorna bytes — .decode() vira str.
                 password=generate_password_hash(senha_temp).decode(),
                 is_active=form.is_active.data,
@@ -106,6 +140,14 @@ def novo_usuario():
             # flush() escreve no banco mas não commita — assim já
             # temos user.id para usar abaixo.
             db.session.flush()
+        else:
+            # Usuário já existe: atualiza cargo/foto/admissão se vieram.
+            if form.cargo.data:
+                user.cargo = form.cargo.data
+            if foto_path:
+                user.photo = foto_path
+            if form.data_admissao.data:
+                user.data_admissao = form.data_admissao.data
 
         # Garante que o Role existe (criação preguiçosa).
         role = Role.query.filter_by(name=form.role.data).first()
@@ -121,12 +163,29 @@ def novo_usuario():
         if not existing:
             assoc = RoleUser(user_id=user.id, business_id=empresa.id, role_id=role.id)
             db.session.add(assoc)
+
+        # Vincula a jornada via Escala (horário contratual do funcionário).
+        # Fecha escalas ativas anteriores e abre uma nova vigente a partir de hoje.
+        if form.jornada_id.data:
+            EscalaFuncionario.query.filter_by(
+                user_id=user.id, empresa_id=empresa.id, ativo=True
+            ).update({'ativo': False, 'data_fim': date.today()})
+            db.session.add(EscalaFuncionario(
+                user_id=user.id,
+                empresa_id=empresa.id,
+                jornada_id=form.jornada_id.data,
+                data_inicio=date.today(),
+                ativo=True,
+            ))
+
         log_action(
             'CRIAR_USUARIO', 'users', user.id,
             dados_depois={
                 'name': user.name,
                 'email': user.email,
                 'role': form.role.data,
+                'cargo': user.cargo,
+                'jornada_id': form.jornada_id.data or None,
                 'novo': senha_temp is not None,
             },
         )
@@ -190,6 +249,63 @@ def novo_local():
         flash('Local de trabalho cadastrado.', 'success')
         return redirect(url_for('admin.locais'))
     return render_template('admin/novo_local.html', form=form, empresa=empresa)
+
+
+@bp_admin.route('/locais/<int:local_id>/editar', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'super_admin')
+def editar_local(local_id):
+    """Edita um local de trabalho existente."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+    # first_or_404 + filtro por empresa: garante que o admin só edita
+    # locais da PRÓPRIA empresa (evita acesso a id de outra empresa).
+    local = LocalTrabalho.query.filter_by(id=local_id, empresa_id=empresa.id).first_or_404()
+    # obj=local pré-preenche o formulário com os valores atuais.
+    form = LocalTrabalhoForm(obj=local)
+    if form.validate_on_submit():
+        local.nome = form.nome.data
+        local.logradouro = form.logradouro.data or None
+        local.numero = form.numero.data or None
+        local.cidade = form.cidade.data or None
+        local.uf = form.uf.data or None
+        local.cep = form.cep.data or None
+        local.latitude = form.latitude.data
+        local.longitude = form.longitude.data
+        local.raio_metros = form.raio_metros.data or 200
+        log_action(
+            'EDITAR_LOCAL', 'locais_trabalho', local.id,
+            dados_depois={
+                'nome': local.nome,
+                'cidade': local.cidade,
+                'raio_metros': local.raio_metros,
+            },
+        )
+        db.session.commit()
+        flash('Local de trabalho atualizado.', 'success')
+        return redirect(url_for('admin.locais'))
+    return render_template('admin/novo_local.html', form=form, empresa=empresa, local=local)
+
+
+@bp_admin.route('/locais/<int:local_id>/toggle', methods=['POST'])
+@login_required
+@role_required('admin', 'super_admin')
+def toggle_local(local_id):
+    """Ativa/desativa um local (soft-delete): preserva o histórico de
+    pontos que apontam para ele e permite reativar depois."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+    local = LocalTrabalho.query.filter_by(id=local_id, empresa_id=empresa.id).first_or_404()
+    local.ativo = not local.ativo
+    log_action(
+        'TOGGLE_LOCAL', 'locais_trabalho', local.id,
+        dados_depois={'ativo': local.ativo},
+    )
+    db.session.commit()
+    flash('Local %s.' % ('reativado' if local.ativo else 'desativado'), 'success')
+    return redirect(url_for('admin.locais'))
 
 
 @bp_admin.route('/jornadas')

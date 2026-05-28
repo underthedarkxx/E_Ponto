@@ -25,10 +25,18 @@ if TYPE_CHECKING:
 # Enum de tipos de registro. Usar Enum em vez de string evita typos
 # ("entrada" vs "Entrada" vs "entrar").
 class TipoRegistro(enum.Enum):
-    ENTRADA = "entrada"          # Funcionário começou a trabalhar
-    SAIDA = "saida"              # Funcionário saiu/parou de trabalhar
-    INCLUSAO = "inclusao"        # RH incluiu manualmente um ponto faltante
-    ALTERACAO = "alteracao"      # Retificação aprovada que mudou o horário
+    ENTRADA = "entrada"                  # Início da jornada
+    SAIDA_ALMOCO = "saida_almoco"        # Saída para o intervalo de almoço
+    RETORNO_ALMOCO = "retorno_almoco"    # Retorno do intervalo de almoço
+    SAIDA = "saida"                      # Saída final (fim da jornada)
+    INCLUSAO = "inclusao"                # RH incluiu manualmente um ponto faltante
+    ALTERACAO = "alteracao"              # Retificação aprovada que mudou o horário
+
+
+# Tipos que "abrem" um período trabalhado (funcionário começa a contar horas).
+TIPOS_ENTRADA = (TipoRegistro.ENTRADA, TipoRegistro.RETORNO_ALMOCO)
+# Tipos que "fecham" um período trabalhado.
+TIPOS_SAIDA = (TipoRegistro.SAIDA_ALMOCO, TipoRegistro.SAIDA)
 
 
 class Registro(db.Model):
@@ -91,7 +99,9 @@ class Registro(db.Model):
     # Tradução para exibição amigável no template.
     _TIPO_LABELS = {
         TipoRegistro.ENTRADA: "Entrada",
-        TipoRegistro.SAIDA: "Saída",
+        TipoRegistro.SAIDA_ALMOCO: "Saída p/ Almoço",
+        TipoRegistro.RETORNO_ALMOCO: "Retorno do Almoço",
+        TipoRegistro.SAIDA: "Saída Final",
         TipoRegistro.INCLUSAO: "Inclusão Manual",
         TipoRegistro.ALTERACAO: "Alteração",
     }
@@ -100,6 +110,11 @@ class Registro(db.Model):
     def tipo_display(self) -> str:
         """Retorna o nome do tipo formatado para exibição em UI."""
         return self._TIPO_LABELS.get(self.tipo, self.tipo.value)
+
+    @property
+    def eh_entrada(self) -> bool:
+        """True para tipos que 'abrem' um período (Entrada / Retorno)."""
+        return self.tipo in TIPOS_ENTRADA
 
     def __repr__(self) -> str:
         return f"<Registro nsr={self.nsr} tipo={self.tipo.value} empresa_id={self.empresa_id}>"

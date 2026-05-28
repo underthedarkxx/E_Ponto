@@ -1,10 +1,19 @@
 {% extends 'base.html' %}
-{% block title %}Novo Local &middot; E-Ponto{% endblock %}
+{% block title %}{{ 'Editar' if local else 'Novo' }} Local &middot; E-Ponto{% endblock %}
+
+{% block head %}
+<!-- Leaflet (mapa open-source, sem chave de API) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    #mapa-local { height: 320px; border-radius: .5rem; z-index: 0; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-9">
-        <h3><i class="bi bi-geo-alt"></i> Novo Local de Trabalho</h3>
+        <h3><i class="bi bi-geo-alt"></i> {{ 'Editar' if local else 'Novo' }} Local de Trabalho</h3>
         <div class="card">
             <div class="card-body p-4">
                 <form method="POST">
@@ -34,19 +43,46 @@
                             {{ form.cep.label(class="form-label") }}
                             {{ form.cep(class="form-control") }}
                         </div>
+                    </div>
+
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0 fw-bold">
+                            <i class="bi bi-pin-map"></i> Posição no mapa
+                        </label>
+                        <button type="button" id="btn-limpar-pino"
+                                class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Limpar pino
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Busque o endereço, clique no mapa ou arraste o pino para marcar o ponto exato do local.
+                        As coordenadas abaixo são preenchidas automaticamente.
+                    </p>
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" id="busca-endereco" class="form-control"
+                               placeholder="Buscar endereço (ex.: Av. Comissário Geraldo, Vila Velha)">
+                        <button type="button" id="btn-buscar-endereco" class="btn btn-outline-primary">Buscar</button>
+                    </div>
+                    <div id="mapa-local" class="mb-2"></div>
+                    <div id="geo-status" class="form-text mb-3"></div>
+
+                    <div class="row g-3">
                         <div class="col-md-5">
                             {{ form.latitude.label(class="form-label") }}
-                            {{ form.latitude(class="form-control", placeholder="-20.336") }}
+                            {{ form.latitude(class="form-control", placeholder="-20.336", readonly=true) }}
                         </div>
                         <div class="col-md-5">
                             {{ form.longitude.label(class="form-label") }}
-                            {{ form.longitude(class="form-control", placeholder="-40.295") }}
+                            {{ form.longitude(class="form-control", placeholder="-40.295", readonly=true) }}
                         </div>
                         <div class="col-md-2">
                             {{ form.raio_metros.label(class="form-label") }}
                             {{ form.raio_metros(class="form-control") }}
                         </div>
                     </div>
+
                     <hr>
                     <p class="text-muted small">
                         <i class="bi bi-info-circle"></i> Funcionários que baterem ponto fora deste raio serão marcados como <strong>suspeitos</strong>,
@@ -59,4 +95,148 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+    var latInput = document.getElementById('latitude');
+    var lngInput = document.getElementById('longitude');
+    var raioInput = document.getElementById('raio_metros');
+
+    // Lê o raio (em metros) do campo; usa 200 como padrão se vazio/inválido.
+    function getRaio() {
+        var r = parseInt(raioInput.value, 10);
+        return (!isNaN(r) && r > 0) ? r : 200;
+    }
+
+    // Centro padrão: Vila Velha/ES (região da UVV). Usado só para enquadrar
+    // o mapa quando ainda não há coordenadas; não preenche os campos.
+    var DEFAULT_CENTER = [-20.3297, -40.2925];
+
+    // Se já existem coordenadas (modo edição), começamos a partir delas.
+    var latVal = parseFloat(latInput.value);
+    var lngVal = parseFloat(lngInput.value);
+    var temCoord = !isNaN(latVal) && !isNaN(lngVal);
+    var inicio = temCoord ? [latVal, lngVal] : DEFAULT_CENTER;
+
+    var map = L.map('mapa-local').setView(inicio, temCoord ? 17 : 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    var marker = null;
+    var circle = null;          // círculo do raio (geofence) ao redor do pino
+    var statusEl = document.getElementById('geo-status');
+
+    // Escreve uma mensagem na área de status abaixo do mapa.
+    function setStatus(msg, classe) {
+        statusEl.className = 'form-text mb-3 ' + (classe || '');
+        statusEl.textContent = msg || '';
+    }
+
+    // Coloca/move o pino + o círculo do raio, e grava as coordenadas.
+    function setPonto(lat, lng) {
+        if (marker) {
+            marker.setLatLng([lat, lng]);
+        } else {
+            marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+            // Arrastar o pino atualiza os campos e o círculo.
+            marker.on('dragend', function (e) {
+                var p = e.target.getLatLng();
+                gravar(p.lat, p.lng);
+                desenharCirculo(p.lat, p.lng);
+            });
+        }
+        desenharCirculo(lat, lng);
+        gravar(lat, lng);
+    }
+
+    // Desenha/atualiza o círculo do raio (em metros) centrado no pino.
+    function desenharCirculo(lat, lng) {
+        var raio = getRaio();
+        if (circle) {
+            circle.setLatLng([lat, lng]).setRadius(raio);
+        } else {
+            circle = L.circle([lat, lng], {
+                radius: raio,
+                color: '#0d6efd',
+                fillColor: '#0d6efd',
+                fillOpacity: 0.12,
+                weight: 1.5
+            }).addTo(map);
+        }
+    }
+
+    function gravar(lat, lng) {
+        latInput.value = Number(lat).toFixed(7);
+        lngInput.value = Number(lng).toFixed(7);
+    }
+
+    // Modo edição: já tem coordenadas → mostra o pino de cara.
+    if (temCoord) {
+        setPonto(latVal, lngVal);
+    }
+
+    // Clicar no mapa define/move o ponto.
+    map.on('click', function (e) {
+        setPonto(e.latlng.lat, e.latlng.lng);
+    });
+
+    // Mudar o raio redesenha o círculo ao vivo (se já há um pino).
+    raioInput.addEventListener('input', function () {
+        if (marker) {
+            var p = marker.getLatLng();
+            desenharCirculo(p.lat, p.lng);
+        }
+    });
+
+    // "Limpar pino": remove o marcador e o círculo e zera as coordenadas.
+    document.getElementById('btn-limpar-pino').addEventListener('click', function () {
+        if (marker) { map.removeLayer(marker); marker = null; }
+        if (circle) { map.removeLayer(circle); circle = null; }
+        latInput.value = '';
+        lngInput.value = '';
+        setStatus('');
+    });
+
+    // --- Busca de endereço (geocoding via Nominatim/OpenStreetMap) -------
+    // Forma confiável de posicionar no desktop, onde o GPS é impreciso.
+    function buscarEndereco() {
+        var q = document.getElementById('busca-endereco').value.trim();
+        if (!q) { return; }
+        setStatus('Buscando endereço...');
+        var url = 'https://nominatim.openstreetmap.org/search'
+                + '?format=json&limit=1&countrycodes=br&q=' + encodeURIComponent(q);
+        fetch(url, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.length) {
+                    setStatus('Endereço não encontrado. Tente ser mais específico.', 'text-danger');
+                    return;
+                }
+                var lat = parseFloat(data[0].lat);
+                var lng = parseFloat(data[0].lon);
+                map.setView([lat, lng], 17);
+                setPonto(lat, lng);
+                setStatus('Endereço encontrado. Arraste o pino se precisar ajustar o ponto exato.', 'text-success');
+            })
+            .catch(function () {
+                setStatus('Falha ao buscar o endereço. Verifique a conexão.', 'text-danger');
+            });
+    }
+    document.getElementById('btn-buscar-endereco').addEventListener('click', buscarEndereco);
+    // Enter no campo de busca NÃO deve enviar o formulário inteiro.
+    document.getElementById('busca-endereco').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); buscarEndereco(); }
+    });
+
+    // O mapa pode renderizar com tamanho errado se o container estava
+    // oculto/animando; um invalidateSize após o load corrige.
+    setTimeout(function () { map.invalidateSize(); }, 200);
+})();
+</script>
 {% endblock %}

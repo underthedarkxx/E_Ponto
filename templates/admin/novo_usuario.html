@@ -7,7 +7,7 @@
         <h3><i class="bi bi-person-plus"></i> Novo Usuário</h3>
         <div class="card">
             <div class="card-body p-4">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     {{ form.hidden_tag() }}
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -30,11 +30,29 @@
                             {{ form.phone.label(class="form-label") }}
                             {{ form.phone(class="form-control") }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            {{ form.cargo.label(class="form-label") }}
+                            {{ form.cargo(class="form-control") }}
+                        </div>
+                        <div class="col-md-4">
+                            {{ form.data_admissao.label(class="form-label") }}
+                            {{ form.data_admissao(class="form-control", type="date") }}
+                            <div class="form-text">A contagem de ponto começa nesta data.</div>
+                        </div>
+                        <div class="col-md-4">
                             {{ form.role.label(class="form-label") }}
                             {{ form.role(class="form-select") }}
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
+                        <div class="col-md-6">
+                            {{ form.jornada_id.label(class="form-label") }}
+                            {{ form.jornada_id(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.photo.label(class="form-label") }}
+                            {{ form.photo(class="form-control") }}
+                            {% for e in form.photo.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-12">
                             <div class="form-check">
                                 {{ form.is_active(class="form-check-input") }}
                                 {{ form.is_active.label(class="form-check-label") }}

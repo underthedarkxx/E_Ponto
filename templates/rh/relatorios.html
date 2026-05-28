@@ -2,7 +2,27 @@
 {% block title %}Relatórios &middot; RH &middot; E-Ponto{% endblock %}
 
 {% block content %}
-<h3><i class="bi bi-file-earmark-arrow-down"></i> Relatórios Legais</h3>
+<h3><i class="bi bi-file-earmark-arrow-down"></i> Relatórios</h3>
+
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <i class="bi bi-file-earmark-excel"></i> <strong>Frequência da Equipe</strong> — Excel (.xlsx)
+    </div>
+    <div class="card-body">
+        <p class="text-muted small">Resumo mensal de toda a equipe: horas trabalhadas, banco de horas, horas extras, atrasos e faltas. Exportado em planilha Excel via Pandas.</p>
+        <form method="GET" action="{{ url_for('rh.download_frequencia_excel') }}" class="row g-3 align-items-end">
+            <div class="col-md-6">
+                <label class="form-label">Período (mês)</label>
+                <input type="month" name="periodo" class="form-control" value="{{ mes_atual }}" required>
+            </div>
+            <div class="col-md-6">
+                <button type="submit" class="btn btn-success w-100"><i class="bi bi-download"></i> Baixar Frequência (Excel)</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<h4 class="mt-4">Relatórios Legais</h4>
 <p class="text-muted">Arquivos exigidos pela Portaria MTP nº 671/2021 — entregues sob solicitação do Auditor Fiscal do Trabalho.</p>
 
 <div class="row g-4">

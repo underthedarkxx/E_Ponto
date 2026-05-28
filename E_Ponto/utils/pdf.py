@@ -36,7 +36,9 @@ def gerar_comprovante(registro) -> bytes:
     story.append(Spacer(1, 0.5 * cm))   # espaço em branco
 
     # Converte UTC -> horário local do servidor para exibição.
-    ts_local = registro.timestamp_utc.astimezone()
+    # to_local trata valores "naive" do SQLite como UTC (ver utils/tz.py).
+    from E_Ponto.utils.tz import to_local
+    ts_local = to_local(registro.timestamp_utc)
 
     # Campos que podem ter valores ausentes ganham um fallback.
     local_nome = registro.local_trabalho.nome if registro.local_trabalho else 'Nao informado'

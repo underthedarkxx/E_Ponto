@@ -26,6 +26,7 @@ from E_Ponto.utils.hashing import calcular_hash      # SHA-256 dos campos
 from E_Ponto.utils.audit import log_action           # helper de audit log
 from E_Ponto.utils.geo import verificar_geofence     # checa lat/lon vs raio
 from E_Ponto.utils.pdf import gerar_comprovante      # monta o PDF
+from E_Ponto.utils.tz import to_local                # UTC -> fuso local
 from E_Ponto.forms.ponto import BaterPontoForm
 
 bp_ponto = Blueprint('ponto', __name__, url_prefix='/ponto')
@@ -125,8 +126,9 @@ def bater():
         )
         db.session.commit()
 
-        # Feedback ao usuário via mensagens flash.
-        flash(f'Ponto registrado! NSR: {nsr} | {now_utc.strftime("%H:%M:%S")} UTC', 'success')
+        # Feedback ao usuário via mensagens flash (hora em fuso local).
+        hora_local = to_local(now_utc).strftime("%H:%M:%S")
+        flash(f'Ponto registrado! NSR: {nsr} | {hora_local}', 'success')
         if suspeito:
             flash(f'Atencao: localizacao suspeita (distancia: {distancia:.0f}m do local).', 'warning')
         return redirect(url_for('ponto.comprovante', reg_id=reg.id))

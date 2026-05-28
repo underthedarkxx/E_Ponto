@@ -52,7 +52,7 @@
             <tbody>
                 {% for log in logs.items %}
                 <tr>
-                    <td><small>{{ log.created_at.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</small></td>
+                    <td><small>{{ log.created_at|localdt('%d/%m/%Y %H:%M:%S') }}</small></td>
                     <td>
                         {% if log.user_id %}
                             {% set u = funcionarios | selectattr('id', 'equalto', log.user_id) | first %}

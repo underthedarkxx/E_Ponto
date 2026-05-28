@@ -37,32 +37,50 @@
 </div>
 
 {% if resultado %}
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <div class="card border-info">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Trabalhado</h6>
-                    <h3 class="text-info mb-0">{{ format_min(resultado.total_trabalhado_min) }}</h3>
-                </div>
-            </div>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">{{ funcionario_sel.name }}{% if funcionario_sel.cargo %} <small class="text-muted">— {{ funcionario_sel.cargo }}</small>{% endif %}</h5>
+        <a class="btn btn-success" href="{{ url_for('rh.banco_horas_excel', user_id=funcionario_sel.id, ano=ano, mes=mes) }}">
+            <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+        </a>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md">
+            <div class="card border-info"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Trabalhado</h6>
+                <h4 class="text-info mb-0">{{ format_min(resultado.total_trabalhado_min) }}</h4>
+            </div></div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-secondary">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Esperado</h6>
-                    <h3 class="text-secondary mb-0">{{ format_min(resultado.total_esperado_min) }}</h3>
-                </div>
-            </div>
+        <div class="col-6 col-md">
+            <div class="card border-secondary"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Esperado</h6>
+                <h4 class="text-secondary mb-0">{{ format_min(resultado.total_esperado_min) }}</h4>
+            </div></div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %}">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Saldo do Mes</h6>
-                    <h3 class="text-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %} mb-0">
-                        {{ '+' if resultado.total_saldo_min > 0 else '' }}{{ format_min(resultado.total_saldo_min) }}
-                    </h3>
-                </div>
-            </div>
+        <div class="col-6 col-md">
+            <div class="card border-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %}"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Saldo (banco)</h6>
+                <h4 class="text-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %} mb-0">
+                    {{ '+' if resultado.total_saldo_min > 0 else '' }}{{ format_min(resultado.total_saldo_min) }}
+                </h4>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card border-primary"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Horas Extras</h6>
+                <h4 class="text-primary mb-0">{{ format_min(resultado.total_extra_min) }}</h4>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card border-warning"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Atrasos</h6>
+                <h4 class="text-warning mb-0">{{ format_min(resultado.total_atraso_min) }}</h4>
+            </div></div>
+        </div>
+        <div class="col-6 col-md">
+            <div class="card border-danger"><div class="card-body text-center py-2">
+                <h6 class="text-muted mb-1">Faltas</h6>
+                <h4 class="text-danger mb-0">{{ resultado.total_faltas }}</h4>
+            </div></div>
         </div>
     </div>
 
@@ -76,6 +94,9 @@
                         <th class="text-end">Trabalhado</th>
                         <th class="text-end">Esperado</th>
                         <th class="text-end">Saldo</th>
+                        <th class="text-end">Extra</th>
+                        <th class="text-end">Atraso</th>
+                        <th class="text-center">Falta</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -92,6 +113,9 @@
                         <td class="text-end font-monospace fw-bold text-{% if d.saldo_min > 0 %}success{% elif d.saldo_min < 0 %}danger{% else %}muted{% endif %}">
                             {{ '+' if d.saldo_min > 0 else '' }}{{ format_min(d.saldo_min) }}
                         </td>
+                        <td class="text-end font-monospace text-primary">{% if d.extra_min %}{{ format_min(d.extra_min) }}{% else %}—{% endif %}</td>
+                        <td class="text-end font-monospace text-warning">{% if d.atraso_min %}{{ format_min(d.atraso_min) }}{% else %}—{% endif %}</td>
+                        <td class="text-center">{% if d.falta %}<span class="badge bg-danger">falta</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -101,7 +125,8 @@
 
     <p class="text-muted mt-3 small">
         <i class="bi bi-info-circle"></i>
-        Calculo baseado em pares ENTRADA/SAIDA. Dias uteis usam a primeira jornada ativa da empresa como referencia.
+        Calculo baseado em pares de batida (Entrada/Retorno abrem; Saida Almoco/Saida Final fecham).
+        A jornada de referencia vem da Escala do funcionario (ou da jornada padrao da empresa, se nao houver escala).
     </p>
 {% elif funcionario_sel is none and funcionarios %}
     <p class="text-muted text-center p-4">Selecione um funcionario para ver o saldo.</p>

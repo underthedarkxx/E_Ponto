@@ -19,11 +19,12 @@
                     <th>Lat/Long</th>
                     <th>Raio</th>
                     <th>Status</th>
+                    <th class="text-end">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for l in locais %}
-                <tr>
+                <tr{% if not l.ativo %} class="text-muted"{% endif %}>
                     <td><strong>{{ l.nome }}</strong></td>
                     <td>{{ l.logradouro or '—' }}{% if l.numero %}, {{ l.numero }}{% endif %}</td>
                     <td>{{ l.cidade or '—' }}{% if l.uf %}/{{ l.uf }}{% endif %}</td>
@@ -34,6 +35,26 @@
                     </td>
                     <td>{{ l.raio_metros }}m</td>
                     <td>{% if l.ativo %}<span class="badge bg-success">Ativo</span>{% else %}<span class="badge bg-secondary">Inativo</span>{% endif %}</td>
+                    <td class="text-end text-nowrap">
+                        <a href="{{ url_for('admin.editar_local', local_id=l.id) }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Editar
+                        </a>
+                        <form method="POST" action="{{ url_for('admin.toggle_local', local_id=l.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('{{ 'Reativar' if not l.ativo else 'Desativar' }} o local “{{ l.nome }}”?');">
+                            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+                            {% if l.ativo %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-slash-circle"></i> Desativar
+                            </button>
+                            {% else %}
+                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reativar
+                            </button>
+                            {% endif %}
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

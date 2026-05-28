@@ -15,9 +15,9 @@
             <tbody>
                 {% for r in pendentes %}
                 <tr>
-                    <td>{{ r.created_at.astimezone().strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td>{{ r.created_at|localdt('%d/%m/%Y %H:%M') }}</td>
                     <td>{{ r.solicitante.name }}</td>
-                    <td><span class="nsr-badge">#{{ r.registro.nsr }}</span> {{ r.registro.timestamp_utc.astimezone().strftime('%d/%m %H:%M') }}</td>
+                    <td><span class="nsr-badge">#{{ r.registro.nsr }}</span> {{ r.registro.timestamp_utc|localdt('%d/%m %H:%M') }}</td>
                     <td>{{ r.motivo[:80] }}{% if r.motivo|length > 80 %}...{% endif %}</td>
                     <td><a href="{{ url_for('rh.decidir_retificacao', ret_id=r.id) }}" class="btn btn-sm btn-primary">Decidir</a></td>
                 </tr>
@@ -48,7 +48,7 @@
                     <td>{{ r.solicitante.name }}</td>
                     <td><span class="nsr-badge">#{{ r.registro.nsr }}</span></td>
                     <td>{{ r.aprovador.name if r.aprovador else '—' }}</td>
-                    <td>{{ r.aprovado_at.astimezone().strftime('%d/%m/%Y %H:%M') if r.aprovado_at else '—' }}</td>
+                    <td>{{ r.aprovado_at|localdt('%d/%m/%Y %H:%M') if r.aprovado_at else '—' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

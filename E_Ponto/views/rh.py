@@ -17,7 +17,7 @@ import calendar  # usado para descobrir o último dia do mês
 
 from E_Ponto.ext.db import db
 from E_Ponto.models.business import Business
-from E_Ponto.models.registro import Registro
+from E_Ponto.models.registro import Registro, TipoRegistro
 from E_Ponto.models.retificacao import Retificacao, StatusRetificacao
 from E_Ponto.models.user import User
 from E_Ponto.models.role_user import RoleUser
@@ -27,8 +27,11 @@ from E_Ponto.utils.afd import gerar_afd   # gera arquivo AFD (formato texto)
 from E_Ponto.utils.aej import gerar_aej   # gera arquivo AEJ (formato texto)
 from E_Ponto.utils.audit import log_action
 from E_Ponto.utils.mail import send_notification
-from E_Ponto.utils.banco_horas import calcular_saldo_mes, format_min
-from E_Ponto.models.jornada import Jornada
+from E_Ponto.utils.banco_horas import (
+    calcular_saldo_mes, format_min, get_jornada_funcionario)
+from E_Ponto.utils.excel import gerar_banco_horas_xlsx, gerar_frequencia_xlsx
+from E_Ponto.utils.nsr import get_next_nsr
+from E_Ponto.utils.hashing import calcular_hash
 from E_Ponto.forms.rh import AprovarRetificacaoForm
 
 bp_rh = Blueprint('rh', __name__, url_prefix='/rh')
@@ -152,10 +155,43 @@ def decidir_retificacao(ret_id):
         status_antes = ret.status.value
 
         # A escolha do <select> determina o novo status.
+        novo_registro = None
         if form.acao.data == 'aprovar':
             ret.status = StatusRetificacao.APROVADA
             acao_audit = 'APROVAR_RETIFICACAO'
             flash('Retificação aprovada.', 'success')
+
+            # Materializa a correção: cria um novo Registro tipo ALTERACAO
+            # com o horário aprovado, encadeado no hash chain. O registro
+            # original NUNCA é apagado (rastreabilidade/auditoria).
+            if ret.novo_timestamp:
+                func_user = ret.registro.user
+                # O funcionário informou hora LOCAL; convertemos para UTC.
+                ts_utc = ret.novo_timestamp.astimezone(timezone.utc)
+                ultimo = (Registro.query
+                          .filter_by(empresa_id=empresa.id)
+                          .order_by(Registro.nsr.desc())
+                          .first())
+                hash_anterior = ultimo.hash_registro if ultimo else None
+                nsr = get_next_nsr(empresa.id)
+                hash_val = calcular_hash(
+                    nsr, empresa.cnpj,
+                    func_user.pis_nis or func_user.cpf or '',
+                    ts_utc.isoformat(), TipoRegistro.ALTERACAO.value, hash_anterior
+                )
+                novo_registro = Registro(
+                    nsr=nsr,
+                    empresa_id=empresa.id,
+                    user_id=func_user.id,
+                    tipo=TipoRegistro.ALTERACAO,
+                    timestamp_utc=ts_utc,
+                    justificativa=ret.motivo,
+                    solicitante_id=ret.solicitante_id,
+                    aprovador_id=current_user.id,
+                    hash_registro=hash_val,
+                    hash_anterior=hash_anterior,
+                )
+                db.session.add(novo_registro)
         else:
             ret.status = StatusRetificacao.REJEITADA
             acao_audit = 'REJEITAR_RETIFICACAO'
@@ -168,6 +204,7 @@ def decidir_retificacao(ret_id):
                 'status': ret.status.value,
                 'observacao': form.observacao.data,
                 'aprovador_id': current_user.id,
+                'novo_timestamp': ret.novo_timestamp.isoformat() if ret.novo_timestamp else None,
             },
         )
         db.session.commit()
@@ -263,9 +300,8 @@ def banco_horas():
     funcionario_sel = None
     if user_id:
         funcionario_sel = User.query.get(user_id)
-        # Pega a primeira jornada ativa da empresa como referencia
-        # (no futuro: pegar a jornada vinculada ao funcionario via Escala).
-        jornada = Jornada.query.filter_by(empresa_id=empresa.id, ativo=True).first()
+        # Jornada vinculada ao funcionario via Escala (fallback: padrao da empresa).
+        jornada = get_jornada_funcionario(user_id, empresa.id)
         resultado = calcular_saldo_mes(user_id, empresa.id, ano, mes, jornada)
 
     return render_template('rh/banco_horas.html',
@@ -276,6 +312,72 @@ def banco_horas():
                            ano=ano,
                            mes=mes,
                            format_min=format_min)
+
+
+@bp_rh.route('/banco-horas/excel')
+@login_required
+@role_required('rh', 'admin', 'super_admin')
+def banco_horas_excel():
+    """Exporta o banco de horas de um funcionario (mes) em Excel (.xlsx)."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+
+    hoje = date.today()
+    user_id = request.args.get('user_id', type=int)
+    ano = request.args.get('ano', hoje.year, type=int)
+    mes = request.args.get('mes', hoje.month, type=int)
+    if not user_id:
+        flash('Selecione um funcionario para exportar.', 'warning')
+        return redirect(url_for('rh.banco_horas'))
+
+    funcionario = User.query.get_or_404(user_id)
+    jornada = get_jornada_funcionario(user_id, empresa.id)
+    resultado = calcular_saldo_mes(user_id, empresa.id, ano, mes, jornada)
+    xlsx = gerar_banco_horas_xlsx(empresa, funcionario, resultado)
+
+    return send_file(
+        BytesIO(xlsx),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'banco_horas_{funcionario.name.replace(" ", "_")}_{ano}-{mes:02d}.xlsx'
+    )
+
+
+@bp_rh.route('/relatorios/frequencia.xlsx')
+@login_required
+@role_required('rh', 'admin', 'super_admin')
+def download_frequencia_excel():
+    """Exporta um resumo de frequencia/horas extras de toda a equipe no mes."""
+    empresa = _empresa()
+    if not empresa:
+        return redirect(url_for('main.index'))
+
+    periodo = request.args.get('periodo', date.today().strftime('%Y-%m'))
+    try:
+        ano, mes = map(int, periodo.split('-'))
+    except (ValueError, AttributeError):
+        flash('Período inválido.', 'danger')
+        return redirect(url_for('rh.relatorios'))
+
+    funcionarios = (User.query
+                    .join(RoleUser, RoleUser.user_id == User.id)
+                    .filter(RoleUser.business_id == empresa.id)
+                    .order_by(User.name)
+                    .all())
+    linhas = []
+    for user in funcionarios:
+        jornada = get_jornada_funcionario(user.id, empresa.id)
+        resultado = calcular_saldo_mes(user.id, empresa.id, ano, mes, jornada)
+        linhas.append((user, resultado))
+
+    xlsx = gerar_frequencia_xlsx(empresa, linhas, ano, mes)
+    return send_file(
+        BytesIO(xlsx),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=f'frequencia_{empresa.cnpj}_{periodo}.xlsx'
+    )
 
 
 @bp_rh.route('/relatorios')

@@ -20,6 +20,10 @@ class LoginForm(FlaskForm):
     email = StringField('E-mail', validators=[DataRequired(), Email(check_deliverability=False)])
     # PasswordField renderiza <input type="password"> (oculta texto).
     # Length(min=6): senha precisa ter pelo menos 6 caracteres.
+    # Não limitamos o máximo aqui de propósito: senhas acima do limite do
+    # bcrypt (72 bytes) são tratadas como credencial inválida no view
+    # (_senha_confere), caindo na mensagem genérica "E-mail ou senha
+    # invalidos" — sem revelar nada ao atacante e sem derrubar com 500.
     password = PasswordField('Senha', validators=[DataRequired(), Length(min=6)])
     # Checkbox "lembrar-me" — quando marcado, Flask-Login estende a
     # duração do cookie de sessão.

@@ -33,7 +33,7 @@
                     <dd class="col-sm-8"><span class="nsr-badge">#{{ reg.nsr }}</span></dd>
 
                     <dt class="col-sm-4">Data / Hora</dt>
-                    <dd class="col-sm-8"><strong>{{ reg.timestamp_utc.astimezone().strftime('%d/%m/%Y %H:%M:%S') }}</strong></dd>
+                    <dd class="col-sm-8"><strong>{{ reg.timestamp_utc|localdt('%d/%m/%Y %H:%M:%S') }}</strong></dd>
 
                     <dt class="col-sm-4">Tipo</dt>
                     <dd class="col-sm-8">

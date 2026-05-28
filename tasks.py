@@ -18,7 +18,7 @@
 # =====================================================================
 
 from invoke.tasks import task
-from datetime import datetime
+from datetime import datetime, date
 from dotenv import load_dotenv
 import os
 import zipfile
@@ -126,6 +126,53 @@ def initdb(c):
         print("[DB] Tabelas criadas.")
 
 
+# ==========================================================
+# MIGRACOES (Flask-Migrate / Alembic)
+# ==========================================================
+# Diferente do initdb (db.create_all, que so CRIA tabelas novas e nunca
+# ALTERA as existentes), as migracoes versionam o schema: cada mudanca
+# de model vira um script aplicavel sem perder dados — o caminho correto
+# para producao. load_env("dev") carrega FLASK_APP=app.py no ambiente, o
+# que o CLI do flask precisa para localizar a aplicacao.
+@task
+def migrate(c, message="migracao"):
+    """
+    Gera um novo script de migracao comparando os models com o banco.
+    Uso: inv migrate -m "adiciona coluna cargo"
+    Depois aplique com `inv upgrade`.
+    """
+    load_env("dev")
+    c.run(f'flask db migrate -m "{message}"', echo=True)
+
+
+@task
+def upgrade(c):
+    """
+    Aplica as migracoes pendentes no banco (cria/altera tabelas).
+    Use em producao no lugar de `inv initdb`.
+    """
+    load_env("dev")
+    c.run("flask db upgrade", echo=True)
+
+
+@task
+def downgrade(c):
+    """
+    Desfaz a ultima migracao aplicada (rollback de schema).
+    """
+    load_env("dev")
+    c.run("flask db downgrade", echo=True)
+
+
+@task
+def dbcurrent(c):
+    """
+    Mostra em qual versao de migracao o banco esta atualmente.
+    """
+    load_env("dev")
+    c.run("flask db current", echo=True)
+
+
 @task
 def seed(c):
     """
@@ -206,6 +253,8 @@ def seed(c):
                 email="joao@eponto.com",
                 cpf="11111111111",
                 pis_nis="11111111111",
+                cargo="Analista",
+                data_admissao=date.today(),
                 password=generate_password_hash("joao123").decode(),
                 is_active=True,
             )

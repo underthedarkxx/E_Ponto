@@ -3,10 +3,98 @@
 
 {% block content %}
 <h3><i class="bi bi-person-workspace"></i> Minha Área</h3>
-<p class="text-muted">{{ current_user.name }} &middot; {{ empresa.trade_name }}</p>
+<p class="text-muted">{{ current_user.name }}{% if current_user.cargo %} &middot; {{ current_user.cargo }}{% endif %} &middot; {{ empresa.trade_name }}</p>
+
+{# ---- Cards de indicadores do mês ---- #}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card border-info h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-1"><i class="bi bi-clock"></i> Trabalhado (mês)</h6>
+                <h3 class="text-info mb-0">{{ format_min(resultado.total_trabalhado_min) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %} h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-1"><i class="bi bi-piggy-bank"></i> Banco de Horas</h6>
+                <h3 class="text-{% if resultado.total_saldo_min >= 0 %}success{% else %}danger{% endif %} mb-0">
+                    {{ '+' if resultado.total_saldo_min > 0 else '' }}{{ format_min(resultado.total_saldo_min) }}
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-warning h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-1"><i class="bi bi-hourglass-split"></i> Atrasos (mês)</h6>
+                <h3 class="text-warning mb-0">{{ format_min(resultado.total_atraso_min) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card border-danger h-100">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-1"><i class="bi bi-calendar-x"></i> Faltas (mês)</h6>
+                <h3 class="text-danger mb-0">{{ resultado.total_faltas }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="row">
     <div class="col-lg-7">
+        {# ---- Calendário do mês ---- #}
+        <div class="card mb-4">
+            <div class="card-header"><strong><i class="bi bi-calendar3"></i> Calendário do mês</strong></div>
+            <div class="card-body">
+                <table class="table table-bordered text-center mb-2" style="table-layout: fixed;">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th><th>Dom</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for semana in semanas %}
+                        <tr>
+                            {% for dia in semana %}
+                                {% set info = dias_por_data.get(dia) %}
+                                {% if dia.month != mes_atual %}
+                                <td class="text-muted bg-light" style="opacity:.4">{{ dia.day }}</td>
+                                {% else %}
+                                <td class="{% if dia == hoje %}border-primary border-2{% endif %}{% if info and info.pre_admissao %} bg-light{% endif %}"
+                                    style="height:62px; vertical-align:top;{% if info and info.pre_admissao %} opacity:.5;{% endif %}">
+                                    <div class="small fw-bold">{{ dia.day }}</div>
+                                    {% if info %}
+                                        {% if info.pre_admissao %}
+                                            <span class="badge bg-secondary" title="Anterior à admissão"><i class="bi bi-lock"></i></span>
+                                        {% elif info.falta %}
+                                            <span class="badge bg-danger">falta</span>
+                                        {% elif info.trabalhado_min > 0 %}
+                                            <div class="small font-monospace">{{ format_min(info.trabalhado_min) }}</div>
+                                            {% if info.atraso_min > 0 %}<span class="badge bg-warning text-dark">+{{ format_min(info.atraso_min) }}</span>{% endif %}
+                                        {% elif not info.eh_util %}
+                                            <div class="small text-muted">—</div>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="small text-muted">
+                    <span class="badge bg-danger">falta</span> dia útil sem batida &middot;
+                    <span class="badge bg-warning text-dark">+atraso</span> entrada após tolerância &middot;
+                    <span class="badge bg-secondary"><i class="bi bi-lock"></i></span> anterior à admissão &middot;
+                    valor = horas trabalhadas no dia
+                </div>
+            </div>
+        </div>
+
+        {# ---- Batidas de hoje ---- #}
         <div class="card mb-4">
             <div class="card-header"><strong>Batidas de hoje</strong></div>
             <div class="card-body p-0">
@@ -18,8 +106,8 @@
                     <tbody>
                         {% for r in registros_hoje %}
                         <tr>
-                            <td><strong>{{ r.timestamp_utc.astimezone().strftime('%H:%M:%S') }}</strong></td>
-                            <td><span class="badge bg-{% if r.tipo.value == 'entrada' %}success{% else %}warning{% endif %}">{{ r.tipo_display }}</span></td>
+                            <td><strong>{{ r.timestamp_utc|localdt('%H:%M:%S') }}</strong></td>
+                            <td><span class="badge bg-{% if r.eh_entrada %}success{% else %}warning text-dark{% endif %}">{{ r.tipo_display }}</span></td>
                             <td><span class="nsr-badge">#{{ r.nsr }}</span></td>
                             <td>
                                 <a href="{{ url_for('ponto.comprovante', reg_id=r.id) }}" class="btn btn-sm btn-link"><i class="bi bi-file-text"></i></a>
@@ -35,6 +123,7 @@
             </div>
         </div>
     </div>
+
     <div class="col-lg-5">
         <div class="card mb-4">
             <div class="card-header"><strong>Minhas retificações</strong></div>
@@ -43,8 +132,8 @@
                 <ul class="list-group list-group-flush">
                     {% for r in minhas_retificacoes %}
                     <li class="list-group-item">
-                        <small class="text-muted">{{ r.created_at.astimezone().strftime('%d/%m %H:%M') }}</small>
-                        <span class="float-end badge bg-{% if r.status.value == 'aprovada' %}success{% elif r.status.value == 'rejeitada' %}danger{% else %}warning{% endif %}">
+                        <small class="text-muted">{{ r.created_at|localdt('%d/%m %H:%M') }}</small>
+                        <span class="float-end badge bg-{% if r.status.value == 'aprovada' %}success{% elif r.status.value == 'rejeitada' %}danger{% else %}warning text-dark{% endif %}">
                             {{ r.status.value }}
                         </span>
                         <p class="mb-0 small">NSR <span class="nsr-badge">#{{ r.registro.nsr }}</span> &middot; {{ r.motivo[:60] }}</p>

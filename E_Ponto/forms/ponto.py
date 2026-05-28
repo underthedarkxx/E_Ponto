@@ -13,10 +13,12 @@ from wtforms.validators import Optional, Length
 
 
 class BaterPontoForm(FlaskForm):
-    # Entrada ou saída (corresponde a TipoRegistro.ENTRADA/SAIDA).
+    # Tipo da batida (corresponde aos valores de TipoRegistro).
     tipo = SelectField('Tipo', choices=[
         ('entrada', 'Entrada'),
-        ('saida', 'Saida'),
+        ('saida_almoco', 'Saida para Almoco'),
+        ('retorno_almoco', 'Retorno do Almoco'),
+        ('saida', 'Saida Final'),
     ])
     # Campos preenchidos automaticamente pelo JavaScript após pegar
     # a geolocalização do navegador.

@@ -32,6 +32,8 @@ dependencies = [
     "pyotp>=2.9",
     "qrcode[pil]>=7.4",
     "flask-mail>=0.9",
+    "pandas>=2.0",
+    "openpyxl>=3.1",
 ]
 
 

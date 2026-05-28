@@ -18,6 +18,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from datetime import date
+import calendar
 
 from E_Ponto.ext.db import db
 from E_Ponto.models.business import Business
@@ -25,6 +26,8 @@ from E_Ponto.models.registro import Registro
 from E_Ponto.models.retificacao import Retificacao, StatusRetificacao
 from E_Ponto.forms.rh import RetificacaoForm
 from E_Ponto.utils.audit import log_action
+from E_Ponto.utils.banco_horas import (
+    calcular_saldo_mes, format_min, get_jornada_funcionario)
 
 bp_funcionario = Blueprint('funcionario', __name__, url_prefix='/funcionario')
 
@@ -38,7 +41,7 @@ def _empresa():
 @bp_funcionario.route('/')
 @login_required
 def dashboard():
-    """Dashboard com batidas de hoje e últimas 10 retificações do próprio usuário."""
+    """Dashboard com batidas de hoje, saldo de horas, atrasos e calendário."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
@@ -54,9 +57,26 @@ def dashboard():
                            .filter_by(empresa_id=empresa.id, solicitante_id=current_user.id)
                            .order_by(Retificacao.created_at.desc())
                            .limit(10).all())
+
+    # ---- Banco de horas / atrasos / faltas do mês corrente ----------
+    jornada = get_jornada_funcionario(current_user.id, empresa.id)
+    resultado = calcular_saldo_mes(current_user.id, empresa.id, hoje.year, hoje.month, jornada)
+    # Indexa os dias por data para o calendário consultar rapidamente.
+    dias_por_data = {d['dia']: d for d in resultado['dias']}
+    # Semanas do mês (cada semana = lista de 7 datas, incluindo dias
+    # "vazios" de meses vizinhos para completar a grade).
+    # firstweekday=0 = segunda-feira (alinha com o cabeçalho Seg..Dom).
+    semanas = calendar.Calendar(firstweekday=0).monthdatescalendar(hoje.year, hoje.month)
+
     return render_template('funcionario/dashboard.html', empresa=empresa,
                            registros_hoje=registros_hoje,
-                           minhas_retificacoes=minhas_retificacoes)
+                           minhas_retificacoes=minhas_retificacoes,
+                           resultado=resultado,
+                           dias_por_data=dias_por_data,
+                           semanas=semanas,
+                           mes_atual=hoje.month,
+                           hoje=hoje,
+                           format_min=format_min)
 
 
 @bp_funcionario.route('/retificar/<int:reg_id>', methods=['GET', 'POST'])

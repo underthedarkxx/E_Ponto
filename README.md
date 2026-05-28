@@ -10,11 +10,19 @@ SQLAlchemy 2.x, Flask-Login, Flask-Migrate, Flask-WTF e Flask-Limiter.
 
 ## Funcionalidades
 
-- Cadastro de empresas, funcionários e RH
-- Registro de pontos (entrada/saída)
-- Geração de relatórios em PDF (AFD, AEJ — formatos da Portaria 671 do MTE)
-- Cálculo de banco de horas e jornadas (CLT)
-- Autenticação com 2FA (TOTP via `pyotp`)
+- Cadastro de empresas e de funcionários/RH (dados pessoais, cargo,
+  horário contratual via jornada e foto opcional)
+- Registro de ponto com 4 batidas — Entrada, Saída para Almoço, Retorno
+  do Almoço e Saída Final — com data/hora e geolocalização
+- Dashboard do funcionário com saldo de horas trabalhadas, banco de
+  horas, atrasos, faltas e calendário do mês
+- Gestão para o RH: listagem de funcionários e registros, aprovação/ajuste
+  manual de pontos com justificativa (retificação) e cálculo automático de
+  horas trabalhadas, horas extras, atrasos e faltas
+- Relatórios mensais por funcionário ou por equipe, com exportação em
+  **Excel (.xlsx)** via Pandas
+- Geração de relatórios legais em PDF/texto (AFD, AEJ — Portaria 671 do MTE)
+- Autenticação segura (login por e-mail e senha) com 2FA opcional (TOTP via `pyotp`)
 - Controle de acesso baseado em papéis (super_admin, admin, rh, funcionario)
 - Rate limiting nas rotas sensíveis (login)
 

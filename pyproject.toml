@@ -19,6 +19,7 @@ authors = [
 ]
 dependencies = [
     "Flask",
+    "invoke>=2.0",
     "dotenv",
     "flask-wtf",
     "email-validator",

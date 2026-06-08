@@ -74,11 +74,9 @@ venv\Scripts\Activate.ps1
 pip install -e ".[dev,test]"
 ```
 
-Ou, usando o atalho do Invoke:
-
-```bash
-inv install
-```
+> ℹ️ Na **primeira** instalação use o `pip` acima — é ele que instala o
+> `invoke` no venv. Só **depois** disso o atalho `inv install` (e os demais
+> comandos `inv ...`) fica disponível para reinstalar/atualizar as deps.
 
 ### 4. Configurar as variáveis de ambiente
 

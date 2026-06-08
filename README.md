@@ -220,6 +220,10 @@ Distribuído sob a licença **MIT**. Veja [LICENSE](LICENSE).
 
 ---
 
-## Autor
+## Autores
 
-**Wanderson Santana** — wanderson.santana@uvv.br
+Grupo 5 — Programação Avançada para Web (UVV, 5º período):
+
+- **Roberto Dias Furtado de Araujo** — 202421518
+- **Rychard Chaves Brandão** — 202417506
+- **Lucas André** — 202422326

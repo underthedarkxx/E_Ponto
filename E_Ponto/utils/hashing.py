@@ -1,40 +1,29 @@
-# =====================================================================
-# utils/hashing.py — Hash em cadeia para integridade dos registros
-# ---------------------------------------------------------------------
-# A Portaria 671/2021 (REP-P) exige um mecanismo que prove que os
-# registros não foram alterados depois de gravados. Para isso usamos
-# uma "hash chain" (blockchain simplificada):
-#   - Cada Registro guarda um SHA-256 calculado a partir dos seus
-#     campos + o hash do registro anterior.
-#   - Para falsificar um único registro antigo, seria preciso recalcular
-#     todos os hashes posteriores. O Auditor consegue detectar isso
-#     percorrendo a cadeia (verificar_integridade).
-# =====================================================================
+"""Hash em cadeia para garantir a integridade dos registros (REP-P).
+
+Cada Registro guarda um SHA-256 calculado a partir dos seus campos mais
+o hash do registro anterior. Alterar um registro antigo exigiria
+recalcular toda a cadeia, o que verificar_integridade detecta.
+"""
 
 import hashlib
 
 
 def calcular_hash(nsr, cnpj, pis_cpf, timestamp_iso, tipo, hash_anterior):
-    """SHA-256 hash chain for REP-P integrity.
+    """Calcula o SHA-256 de um registro encadeando o hash anterior.
 
-    O `|` separa os campos para evitar ambiguidade (ex.: "12" + "34"
-    vira "1234", mas "12|34" não pode ser confundido com "1|234").
-    Quando não há hash anterior (primeiro registro), usamos "GENESIS"
-    como sentinela explícito.
+    O separador '|' evita ambiguidade entre campos; 'GENESIS' marca o
+    primeiro registro (sem anterior).
     """
     data = f"{nsr}|{cnpj}|{pis_cpf}|{timestamp_iso}|{tipo}|{hash_anterior or 'GENESIS'}"
-    # encode('utf-8') -> bytes; hexdigest() -> string hex de 64 caracteres.
     return hashlib.sha256(data.encode('utf-8')).hexdigest()
 
 
 def verificar_integridade(registros):
-    """
-    Verify hash chain integrity for a list of records ordered by NSR.
-    Returns list of (registro, ok: bool).
+    """Verifica a cadeia de hashes de registros ordenados por NSR.
 
-    Estratégia: recalcular o hash esperado de cada registro usando os
-    campos atuais + o hash do anterior. Se algum não bater, alguma
-    coisa foi alterada (no campo ou no campo `hash_registro`).
+    Retorna lista de (registro, ok: bool). Recalcula o hash esperado de
+    cada registro; usa o hash armazenado do anterior para identificar
+    onde a cadeia quebrou.
     """
     results = []
     prev_hash = None
@@ -47,10 +36,7 @@ def verificar_integridade(registros):
             reg.tipo.value,
             prev_hash
         )
-        # Compara o hash armazenado com o recalculado.
         ok = reg.hash_registro == esperado
         results.append((reg, ok))
-        # Para o próximo: usamos o hash armazenado (não o esperado).
-        # Assim conseguimos identificar onde a cadeia quebrou.
         prev_hash = reg.hash_registro
     return results

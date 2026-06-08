@@ -1,21 +1,10 @@
 # pyright: reportCallIssue=false
-# =====================================================================
-# utils/audit.py — Helper para gravar logs de auditoria
-# ---------------------------------------------------------------------
-# Centraliza a criacao de AuditLog para ser chamado das views.
-# Captura automaticamente:
-#   - user_id (de current_user, se logado)
-#   - empresa_id (da sessao Flask)
-#   - ip_address (do request)
-#
-# Uso tipico em uma view:
-#     from E_Ponto.utils.audit import log_action
-#     log_action('CRIAR_REGISTRO', 'registros', reg.id,
-#                dados_depois={'tipo': reg.tipo.value, 'nsr': reg.nsr})
-#
-# IMPORTANTE: a funcao apenas adiciona ao session — quem chamou
-# precisa fazer db.session.commit() depois (ou ja ter feito).
-# =====================================================================
+"""Helper para gravar entradas de auditoria (AuditLog) a partir das views.
+
+Captura automaticamente user_id (current_user), empresa_id (sessao) e
+ip_address (request). Por padrao apenas adiciona ao session; o chamador
+deve fazer commit (ou passar commit=True).
+"""
 
 import json
 from typing import Optional, Any
@@ -36,31 +25,22 @@ def log_action(
     empresa_id: Optional[int] = None,
     commit: bool = False,
 ) -> AuditLog:
-    """
-    Grava uma entrada no audit log.
+    """Grava uma entrada no audit log.
 
-    Parametros:
-        acao         Nome da acao em SCREAMING_SNAKE_CASE
-                     (ex.: 'CRIAR_REGISTRO', 'APROVAR_RETIFICACAO').
-        tabela       Nome da tabela afetada (ex.: 'registros', 'users').
-        registro_id  ID da linha afetada (opcional para acoes "soltas").
-        dados_antes  Dict com o estado anterior (serializado em JSON).
-        dados_depois Dict com o estado novo (serializado em JSON).
-        empresa_id   Override; se None, le da session do Flask.
-        commit       Se True, faz db.session.commit() ao final. Por
-                     padrao False — a view chama commit junto com as
-                     outras alteracoes (transacao atomica).
+    acao         Nome da acao em SCREAMING_SNAKE_CASE (ex.: 'CRIAR_REGISTRO').
+    tabela       Tabela afetada (ex.: 'registros', 'users').
+    registro_id  ID da linha afetada (opcional).
+    dados_antes  Estado anterior (serializado em JSON).
+    dados_depois Estado novo (serializado em JSON).
+    empresa_id   Override; se None, le da session.
+    commit       Se True, faz commit ao final (padrao False).
     """
-    # user_id: pega do current_user se houver request HTTP ativo
     user_id: Optional[int] = None
     ip_address: Optional[str] = None
     if has_request_context():
         if current_user.is_authenticated:
             user_id = current_user.id
-        # request.remote_addr respeita X-Forwarded-For se configurado
-        # no proxy (Nginx, etc.). Em dev local, vira "127.0.0.1".
         ip_address = request.remote_addr
-        # Se empresa_id nao foi passado, pega da sessao
         if empresa_id is None:
             empresa_id = session.get('empresa_id')
 

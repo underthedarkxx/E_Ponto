@@ -1,11 +1,4 @@
-# =====================================================================
-# models/__init__.py — Pacote de modelos
-# ---------------------------------------------------------------------
-# Re-exporta todas as classes de modelo para que outros módulos possam
-# escrever simplesmente:
-#     from E_Ponto.models import User, Role, Registro
-# em vez de importar arquivo a arquivo.
-# =====================================================================
+"""Re-exporta os modelos para permitir `from E_Ponto.models import User, ...`."""
 
 from .user import User
 from .role import Role

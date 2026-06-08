@@ -1,15 +1,8 @@
-# =====================================================================
-# utils/excel.py — Exportacao de relatorios em formato Excel (.xlsx)
-# ---------------------------------------------------------------------
-# Usa o Pandas (com o engine openpyxl) para montar planilhas a partir
-# dos dados ja calculados em utils/banco_horas.py. Cada funcao retorna
-# os BYTES do arquivo .xlsx, prontos para serem enviados via send_file.
-#
-# Sao tres relatorios, conforme prometido no escopo do projeto:
-#   - Banco de horas (detalhado, por funcionario/mes)
-#   - Frequencia da equipe (resumo, todos os funcionarios no mes)
-#   - Horas extras da equipe (resumo focado em extras/atrasos/faltas)
-# =====================================================================
+"""Exportacao de relatorios em Excel (.xlsx) via Pandas/openpyxl.
+
+Monta planilhas a partir dos dados de utils/banco_horas.py. Cada funcao
+retorna os bytes do arquivo, prontos para send_file.
+"""
 
 from io import BytesIO
 
@@ -27,17 +20,12 @@ def _periodo_label(ano: int, mes: int) -> str:
 
 
 def gerar_banco_horas_xlsx(empresa, funcionario, resultado) -> bytes:
-    """
-    Planilha detalhada do banco de horas de UM funcionario no mes.
+    """Planilha detalhada do banco de horas de um funcionario no mes.
 
-    Duas abas:
-      - "Resumo": totais do mes (trabalhado, esperado, saldo, extras,
-        atrasos, faltas).
-      - "Detalhamento": uma linha por dia do mes.
+    Abas: "Resumo" (totais do mes) e "Detalhamento" (uma linha por dia).
     """
     ano, mes = resultado['ano'], resultado['mes']
 
-    # ---- Aba Resumo -------------------------------------------------
     resumo = pd.DataFrame([
         ('Empresa', empresa.trade_name),
         ('Funcionario', funcionario.name),
@@ -51,7 +39,6 @@ def gerar_banco_horas_xlsx(empresa, funcionario, resultado) -> bytes:
         ('Faltas (dias)', resultado['total_faltas']),
     ], columns=['Indicador', 'Valor'])
 
-    # ---- Aba Detalhamento -------------------------------------------
     linhas = []
     for d in resultado['dias']:
         linhas.append({
@@ -70,11 +57,10 @@ def gerar_banco_horas_xlsx(empresa, funcionario, resultado) -> bytes:
 
 
 def gerar_frequencia_xlsx(empresa, linhas_funcionarios, ano: int, mes: int) -> bytes:
-    """
-    Resumo de frequencia/horas extras de TODA a equipe no mes.
+    """Resumo de frequencia/horas extras de toda a equipe no mes.
 
-    linhas_funcionarios: lista de tuplas (funcionario, resultado_mes),
-    onde resultado_mes vem de calcular_saldo_mes.
+    linhas_funcionarios: lista de (funcionario, resultado_mes), onde
+    resultado_mes vem de calcular_saldo_mes.
     """
     dados = []
     for funcionario, resultado in linhas_funcionarios:
@@ -108,7 +94,7 @@ def _to_bytes(abas: dict) -> bytes:
     with pd.ExcelWriter(buf, engine='openpyxl') as writer:
         for nome, df in abas.items():
             df.to_excel(writer, sheet_name=nome, index=False)
-            # Auto-ajuste simples da largura das colunas.
+            # Auto-ajuste simples da largura das colunas
             ws = writer.sheets[nome]
             for i, col in enumerate(df.columns, start=1):
                 largura = max(

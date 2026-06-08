@@ -1,43 +1,32 @@
-# =====================================================================
-# views/auth.py — Autenticação (login, 2FA, logout)
-# ---------------------------------------------------------------------
-# Trata todo o fluxo de login: verificação de senha (bcrypt), opcional
-# segundo fator TOTP (Authenticator) e logout. Todas as URLs aqui
-# começam com /auth/.
-# =====================================================================
+"""Autenticacao: login, 2FA (TOTP) e logout. URLs sob /auth/."""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, make_response, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
-import pyotp        # gera e verifica códigos TOTP (RFC 6238)
-import qrcode       # gera o QR Code que é escaneado pelo app autenticador
+import pyotp
+import qrcode
 import io
 import base64
 from urllib.parse import urlparse
 from E_Ponto.models.user import User
 from E_Ponto.forms.auth import LoginForm, VerifyTotpForm, SetupTotpForm
 
-# Blueprint com prefixo /auth (todas as URLs ficam /auth/<rota>).
 bp_auth = Blueprint('auth', __name__, url_prefix='/auth')
-# Bcrypt é inicializado em views/__init__.py via bcrypt.init_app(app).
+# Inicializado em views/__init__.py via bcrypt.init_app(app)
 bcrypt = Bcrypt()
 
 
 def _destino_seguro(destino):
-    """Valida o parâmetro ?next= para evitar open redirect (CWE-601).
+    """Valida o parametro ?next= contra open redirect (CWE-601).
 
-    Só aceita caminhos LOCAIS (ex.: '/ponto/historico'). Recusa URLs
-    absolutas ('https://evil.com') e protocol-relative ('//evil.com'),
-    que poderiam mandar o usuário recém-logado para um site externo
-    de phishing. Em caso de destino inseguro, retorna None.
+    Aceita apenas caminhos locais; recusa URLs absolutas e
+    protocol-relative. Retorna None se o destino for inseguro.
     """
     if not destino:
         return None
-    # '//evil.com' é interpretado pelo navegador como URL externa.
     if destino.startswith('//') or '\\' in destino:
         return None
     parsed = urlparse(destino)
-    # Sem esquema (http/https) e sem domínio = caminho local relativo.
     if parsed.scheme or parsed.netloc:
         return None
     if not destino.startswith('/'):
@@ -46,13 +35,11 @@ def _destino_seguro(destino):
 
 
 def _senha_confere(pw_hash, senha):
-    """Compara senha x hash sem nunca lançar exceção.
+    """Compara senha x hash sem lancar excecao.
 
-    O bcrypt aceita no máximo 72 bytes e, nas versões novas, lança
-    ValueError para entradas maiores. Sem este guard, mandar uma senha
-    gigante na tela de login derrubaria a request com erro 500 (uma
-    porta para ataque de disponibilidade). Aqui tratamos qualquer
-    senha inválida/longa como simplesmente "não confere".
+    O bcrypt aceita no maximo 72 bytes e lanca ValueError acima disso;
+    tratamos qualquer entrada invalida/longa como "nao confere" para
+    evitar um 500 na tela de login.
     """
     if not pw_hash or not senha:
         return False
@@ -64,41 +51,31 @@ def _senha_confere(pw_hash, senha):
 
 @bp_auth.route('/login', methods=['GET', 'POST'])
 def login():
-    """Tela de login. GET mostra o form, POST processa as credenciais."""
-    # Se já está autenticado, não tem por que mostrar a tela de login.
+    """Tela de login: GET mostra o form, POST processa as credenciais."""
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
 
     form = LoginForm()
-    # validate_on_submit retorna True apenas em POST + dados válidos.
     if form.validate_on_submit():
-        # Email é case-insensitive — sempre comparamos em lowercase.
+        # Email e case-insensitive
         user = User.query.filter_by(email=form.email.data.lower()).first()
-        # Confere se o usuário existe, tem senha cadastrada e se o hash
-        # bate com a senha digitada (bcrypt.check_password_hash faz a
-        # comparação em tempo constante para evitar timing attacks).
         if user and _senha_confere(user.password, form.password.data):
-            # Conta desativada não pode entrar.
             if not user.is_active:
                 flash('Conta desativada. Contate o administrador.', 'danger')
                 return redirect(url_for('auth.login'))
 
-            # Se 2FA está ligado, NÃO loga ainda — guarda o user_id na
-            # sessão e manda para a tela de verificação do código.
+            # Com 2FA, guarda o user_id e segue para a verificacao do codigo
             if user.two_factor_enabled:
                 session['_2fa_user_id'] = user.id
                 session['_2fa_remember'] = form.remember.data
                 return redirect(url_for('auth.verify_2fa'))
 
-            # Sem 2FA: efetua login normalmente.
             login_user(user, remember=form.remember.data)
-            # Suporte ao parâmetro ?next= (quando o usuário tentou
-            # acessar uma página protegida antes de logar).
+            # Suporte ao ?next= (pagina protegida acessada antes do login)
             next_page = _destino_seguro(request.args.get('next'))
             return redirect(next_page or url_for('main.index'))
 
-        # Credencial inválida — mensagem genérica para não revelar se
-        # foi o email ou a senha que estava errado.
+        # Mensagem generica para nao revelar se errou email ou senha
         flash('E-mail ou senha invalidos.', 'danger')
 
     return render_template('auth/login.html', form=form)
@@ -106,8 +83,7 @@ def login():
 
 @bp_auth.route('/verify-2fa', methods=['GET', 'POST'])
 def verify_2fa():
-    """Segunda etapa do login: confere o código TOTP do autenticador."""
-    # Sem user_id na sessão, ninguém deveria estar nesta rota.
+    """Segunda etapa do login: confere o codigo TOTP do autenticador."""
     user_id = session.get('_2fa_user_id')
     if not user_id:
         return redirect(url_for('auth.login'))
@@ -117,12 +93,9 @@ def verify_2fa():
 
     form = VerifyTotpForm()
     if form.validate_on_submit():
-        # Recria o objeto TOTP a partir do segredo salvo no usuário.
         totp = pyotp.TOTP(user.totp_secret)
-        # `verify` aceita códigos da janela atual (e da imediatamente
-        # anterior, por padrão), tolerando pequenos atrasos de relógio.
+        # verify tolera a janela anterior, cobrindo pequenos desvios de relogio
         if totp.verify(form.code.data):
-            # Loga e limpa o estado temporário da sessão.
             login_user(user, remember=session.pop('_2fa_remember', False))
             session.pop('_2fa_user_id', None)
             return redirect(url_for('main.index'))
@@ -133,29 +106,26 @@ def verify_2fa():
 @bp_auth.route('/setup-2fa', methods=['GET', 'POST'])
 @login_required
 def setup_2fa():
-    """Configura 2FA: gera segredo, mostra QR e confirma o primeiro código."""
+    """Configura 2FA: gera o segredo, mostra o QR e confirma o primeiro codigo."""
     form = SetupTotpForm()
 
-    # Se for a primeira vez, gera um segredo Base32 aleatório.
+    # Primeira vez: gera um segredo Base32 aleatorio
     if not current_user.totp_secret:
         current_user.totp_secret = pyotp.random_base32()
         from E_Ponto.ext.db import db
         db.session.commit()
 
-    # `provisioning_uri` retorna a string padrão (otpauth://...) que
-    # o app Authenticator entende.
     totp = pyotp.TOTP(current_user.totp_secret)
     uri = totp.provisioning_uri(current_user.email, issuer_name="E-Ponto")
 
-    # Gera a imagem QR em memória e converte para base64 — assim a
-    # imagem pode ser embutida direto no HTML, sem rota de download.
+    # Gera o QR em memoria e embute como base64 no HTML
     img = qrcode.make(uri)
     buf = io.BytesIO()
     img.save(buf)
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
 
     if form.validate_on_submit():
-        # Confere o primeiro código antes de ativar definitivamente.
+        # Confere o primeiro codigo antes de ativar
         if totp.verify(form.code.data):
             current_user.two_factor_enabled = True
             from E_Ponto.ext.db import db
@@ -170,15 +140,13 @@ def setup_2fa():
 @bp_auth.route('/logout')
 @login_required
 def logout():
-    """Encerra a sessão do usuário."""
-    logout_user()       # Remove o user_id do cookie de sessão.
-    session.clear()     # Limpa qualquer outro dado guardado (empresa_id, etc.).
+    """Encerra a sessao do usuario."""
+    logout_user()
+    session.clear()
     flash('Voce saiu da sessao.', 'info')
 
-    # IMPORTANTE: logout_user() nao apaga o cookie "remember-me" sozinho
-    # quando o usuario logou com "lembrar de mim". Sem apagar esse cookie,
-    # o Flask-Login reautentica o usuario na proxima requisicao e ele
-    # volta pra home automaticamente (parecendo que o logout nao funcionou).
+    # logout_user() nao apaga o cookie "remember-me"; sem isso o
+    # Flask-Login reautentica o usuario na proxima requisicao
     response = make_response(redirect(url_for('auth.login')))
     remember_cookie = current_app.config.get('REMEMBER_COOKIE_NAME', 'remember_token')
     response.delete_cookie(remember_cookie)

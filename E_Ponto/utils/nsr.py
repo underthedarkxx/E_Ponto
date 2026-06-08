@@ -1,43 +1,30 @@
 # pyright: reportCallIssue=false
-# =====================================================================
-# utils/nsr.py — Geração atômica do NSR por empresa
-# ---------------------------------------------------------------------
-# A diretiva "# pyright: reportCallIssue=false" no topo silencia o
-# aviso do Pylance para construtores de modelos SQLAlchemy (ex.:
-# NsrSequencia(empresa_id=..., ultimo_nsr=...)) — limitacao do
-# Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
-# ---------------------------------------------------------------------
-# O NSR (Número Sequencial de Registro) deve ser único e contínuo
-# dentro de cada empresa. Se duas batidas acontecem ao mesmo tempo
-# (concorrência), precisamos garantir que cada uma receba um NSR
-# diferente — daí o uso de SELECT FOR UPDATE (lock de linha).
-# =====================================================================
+"""Geracao atomica do NSR (Numero Sequencial de Registro) por empresa.
+
+O NSR deve ser unico e continuo por empresa. Usa SELECT FOR UPDATE
+(lock de linha) para que batidas concorrentes recebam NSRs distintos.
+"""
 
 from E_Ponto.ext.db import db
 from E_Ponto.models.nsr_sequencia import NsrSequencia
 
 
 def get_next_nsr(empresa_id: int) -> int:
-    """Atomically get next NSR for a company using row-level lock."""
-    # with_for_update() adiciona "FOR UPDATE" ao SELECT. O banco trava
-    # essa linha até o COMMIT, impedindo que outra conexão leia o
-    # mesmo valor simultaneamente.
-    #
-    # Observação: SQLite ignora o FOR UPDATE (todo o banco já é
-    # serializado por write lock). Em Postgres/MySQL funciona como
-    # esperado.
+    """Retorna o proximo NSR da empresa usando lock de linha.
+
+    with_for_update() trava a linha ate o commit. (SQLite ignora o
+    FOR UPDATE, mas ja serializa escritas; em Postgres/MySQL funciona.)
+    O commit final fica a cargo da view chamadora.
+    """
     seq = (NsrSequencia.query
            .filter_by(empresa_id=empresa_id)
            .with_for_update()
            .first())
 
-    # Se a empresa ainda não tem linha de sequência, cria com 0.
     if seq is None:
         seq = NsrSequencia(empresa_id=empresa_id, ultimo_nsr=0)
         db.session.add(seq)
 
-    # Incrementa, dá flush (manda pro banco mas sem commit) e devolve
-    # o novo valor. O commit final é responsabilidade da view chamadora.
     seq.ultimo_nsr += 1
     db.session.flush()
     return seq.ultimo_nsr

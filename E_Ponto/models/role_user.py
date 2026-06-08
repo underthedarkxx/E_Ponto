@@ -1,13 +1,9 @@
-# =====================================================================
-# models/role_user.py — Tabela de associação User <-> Role
-# ---------------------------------------------------------------------
-# É o "núcleo" do modelo de permissões do sistema. Cada linha aqui diz:
-#     "O usuário X tem o papel Y dentro da empresa Z (com nível W)."
-#
-# É uma tabela de muitos-para-muitos enriquecida: além de ligar User
-# a Role, também carrega contexto (Business e Level) e datas de
-# vigência (created_at / finished_at).
-# =====================================================================
+"""Modelo RoleUser: associacao User <-> Role (nucleo de permissoes).
+
+Cada linha diz "o usuario X tem o papel Y na empresa Z (com nivel W)".
+E uma tabela muitos-para-muitos enriquecida com contexto (Business, Level)
+e datas de vigencia (created_at / finished_at).
+"""
 
 from typing import Optional, TYPE_CHECKING
 from datetime import datetime
@@ -23,12 +19,10 @@ if TYPE_CHECKING:
     from .level import Level
 
 
-# === Associação entre usuário, papel e empresa ===
 class RoleUser(db.Model):
     __tablename__ = "roles_has_users"
     __table_args__ = (
-        # Garante que não exista a mesma combinação (user, role, business)
-        # duplicada — ex.: não pode haver dois "Roberto admin da Padaria X".
+        # Impede combinacao (user, role, business) duplicada
         UniqueConstraint(
             "user_id",
             "role_id",
@@ -39,20 +33,16 @@ class RoleUser(db.Model):
     )
 
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
-    # Foreign keys: cada coluna aponta para a PK da tabela respectiva.
     role_id: Mapped[int] = mapped_column(db.ForeignKey("roles.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(db.ForeignKey("users.id"), nullable=False, index=True)
-    # business_id é opcional: papel "admin do sistema" pode não estar
-    # vinculado a uma empresa específica.
+    # Opcional: papel "admin do sistema" pode nao ter empresa
     business_id: Mapped[Optional[int]] = mapped_column(db.ForeignKey("businesses.id"), nullable=True, index=True)
     level_id: Mapped[Optional[int]] = mapped_column(db.ForeignKey("levels.id"), nullable=True)
-    # Data de criação do vínculo.
     created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), server_default=func.now(), nullable=False)
-    # Quando preenchido, indica que o vínculo terminou (ex.: demissão).
+    # Preenchido quando o vinculo termina (ex.: demissao)
     finished_at: Mapped[Optional[datetime]] = mapped_column(db.DateTime(timezone=True))
 
-    # ---- Relacionamentos (ORM) --------------------------------------
-    # Permitem navegar entre objetos: role_user.role, role_user.user, etc.
+    # Relacionamentos
     role: Mapped["Role"] = relationship(
         "Role",
         back_populates="role_associations"

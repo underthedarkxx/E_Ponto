@@ -1,23 +1,13 @@
-# =====================================================================
-# utils/banco_horas.py — Calculo de saldo de horas, atrasos e faltas
-# ---------------------------------------------------------------------
-# Para cada dia do mes, soma os minutos trabalhados (pares de
-# ABERTURA/FECHAMENTO) e compara com a jornada esperada do funcionario.
-# Tambem apura ATRASOS (entrada apos o horario contratual + tolerancia)
-# e FALTAS (dia util sem nenhuma batida). O saldo do mes (banco de
-# horas) e a soma dos saldos diarios.
-#
-# Pares de batida considerados:
-#   - Abrem periodo:  ENTRADA, RETORNO_ALMOCO
-#   - Fecham periodo: SAIDA_ALMOCO, SAIDA
-# Assim o intervalo de almoco (entre SAIDA_ALMOCO e RETORNO_ALMOCO)
-# fica naturalmente fora da contagem.
-#
-# Modelo simplificado:
-#   - Jornada esperada por dia util = carga_semanal / 5
-#   - Sabado e domingo = 0 esperado
-#   - Sem jornada cadastrada -> assume 8h/dia (480 min)
-# =====================================================================
+"""Calculo de saldo de horas, atrasos e faltas.
+
+Para cada dia do mes soma os minutos trabalhados (pares ABRE/FECHA) e
+compara com a jornada esperada, apurando atrasos e faltas. O saldo do
+mes (banco de horas) e a soma dos saldos diarios.
+
+Modelo simplificado:
+- Esperado por dia util = carga_semanal / 5 (sem jornada, assume 8h/dia)
+- Sabado/domingo = 0 esperado
+"""
 
 from datetime import date, datetime, timezone, time
 from calendar import monthrange
@@ -34,11 +24,11 @@ class SaldoDia(TypedDict):
     trabalhado_min: int
     esperado_min: int
     saldo_min: int
-    extra_min: int           # horas extras do dia (saldo positivo)
-    atraso_min: int          # atraso na entrada (em minutos)
-    falta: bool              # True se dia util sem nenhuma batida
+    extra_min: int
+    atraso_min: int
+    falta: bool
     eh_util: bool
-    pre_admissao: bool       # True se o dia e anterior a admissao do func.
+    pre_admissao: bool
 
 
 class ResultadoMes(TypedDict):
@@ -57,12 +47,10 @@ class ResultadoMes(TypedDict):
 def get_jornada_funcionario(
     user_id: int, empresa_id: int, ref: Optional[date] = None
 ) -> Optional[Jornada]:
-    """
-    Descobre a jornada vigente de um funcionario na empresa.
+    """Descobre a jornada vigente de um funcionario na empresa.
 
-    Primeiro tenta a Escala ativa do funcionario (vinculo
-    funcionario->jornada). Se nao houver escala, cai para a primeira
-    jornada ativa da empresa como referencia padrao.
+    Tenta a escala ativa do funcionario; sem escala, cai para a primeira
+    jornada ativa da empresa.
     """
     ref = ref or date.today()
     escala = (EscalaFuncionario.query
@@ -74,33 +62,24 @@ def get_jornada_funcionario(
               .order_by(EscalaFuncionario.data_inicio.desc())
               .first())
     if escala and escala.jornada_id:
-        # Respeita a vigencia: ignora escalas ja encerradas.
+        # Respeita a vigencia: ignora escalas ja encerradas
         if escala.data_fim is None or escala.data_fim >= ref:
             return escala.jornada
-    # Fallback: jornada padrao da empresa.
     return Jornada.query.filter_by(empresa_id=empresa_id, ativo=True).first()
 
 
 def _esperado_minutos_por_dia(jornada: Optional[Jornada]) -> int:
-    """Retorna minutos esperados em um dia util (segunda a sexta)."""
+    """Minutos esperados em um dia util (segunda a sexta)."""
     if jornada and jornada.carga_horaria_semanal:
-        # carga_horaria_semanal / 5 dias uteis * 60 minutos
         return int(float(jornada.carga_horaria_semanal) / 5 * 60)
-    # Default 8h = 480 min
-    return 480
+    return 480  # 8h
 
 
 def _minutos_trabalhados_no_dia(registros_do_dia: list[Registro]) -> int:
-    """
-    Soma os minutos entre pares ABRE -> FECHA do dia.
+    """Soma os minutos entre pares ABRE -> FECHA do dia.
 
-    Ordena por timestamp e processa em sequencia: cada batida de
-    ABERTURA (ENTRADA/RETORNO_ALMOCO) "abre" e cada batida de
-    FECHAMENTO (SAIDA_ALMOCO/SAIDA) "fecha" um intervalo. Entrada sem
-    saida correspondente (esqueceu de bater) e ignorada.
-
-    INCLUSAO e ALTERACAO sao tratadas conforme o proprio tipo gravado
-    no registro corrigido, entao nao entram aqui diretamente.
+    ENTRADA/RETORNO_ALMOCO abrem; SAIDA_ALMOCO/SAIDA fecham. Entrada sem
+    saida correspondente e ignorada, assim como o intervalo de almoco.
     """
     pares = sorted(
         [r for r in registros_do_dia
@@ -117,8 +96,6 @@ def _minutos_trabalhados_no_dia(registros_do_dia: list[Registro]) -> int:
             delta = r.timestamp_utc - abertura
             total_min += int(delta.total_seconds() // 60)
             abertura = None
-        # Outros casos (ex.: duas aberturas seguidas) sao ignorados —
-        # a ultima abertura e a que vale.
 
     return total_min
 
@@ -131,13 +108,10 @@ def _minutos_do_horario(t: Optional[time]) -> Optional[int]:
 
 
 def _atraso_no_dia(registros_do_dia: list[Registro], jornada: Optional[Jornada]) -> int:
-    """
-    Minutos de atraso na ENTRADA do dia.
+    """Minutos de atraso na ENTRADA do dia.
 
-    Compara a primeira ENTRADA (em horario local) com o horario de
-    entrada contratual da jornada, descontando a tolerancia (CLT art.
-    58 — ate 5 min). Retorna 0 se nao ha como apurar (sem jornada,
-    sem horario fixo, ou sem entrada registrada).
+    Compara a primeira ENTRADA (local) com o horario contratual,
+    descontando a tolerancia. Retorna 0 quando nao ha como apurar.
     """
     if not jornada or jornada.horario_entrada is None:
         return 0
@@ -148,7 +122,7 @@ def _atraso_no_dia(registros_do_dia: list[Registro], jornada: Optional[Jornada])
     if not entradas:
         return 0
 
-    primeira = to_local(entradas[0].timestamp_utc)  # UTC -> local
+    primeira = to_local(entradas[0].timestamp_utc)
     minutos_entrada = primeira.hour * 60 + primeira.minute
     minutos_contratual = _minutos_do_horario(jornada.horario_entrada)
     if minutos_contratual is None:
@@ -166,26 +140,17 @@ def calcular_saldo_mes(
     jornada: Optional[Jornada] = None,
     data_admissao: Optional[date] = None,
 ) -> ResultadoMes:
-    """
-    Monta o relatorio do mes para o funcionario.
+    """Monta o relatorio do mes para o funcionario.
 
-    Parametros:
-        user_id, empresa_id    Filtra registros do funcionario na empresa.
-        ano, mes               Mes alvo (ex.: 2026, 5).
-        jornada                Jornada do funcionario (opcional — se
-                               None, assume 8h/dia util).
-        data_admissao          Dias ANTERIORES a esta data nao contam
-                               (sem horas esperadas, sem falta). Se None,
-                               busca a do proprio User; se o User tambem
-                               nao tiver, conta o mes inteiro.
+    data_admissao: dias anteriores nao contam (sem esperado/falta). Se
+    None, busca a do proprio User; sem ela, conta o mes inteiro.
     """
-    # Sem data explicita, usa a do cadastro do funcionario.
     if data_admissao is None:
         from E_Ponto.models.user import User
         u = User.query.get(user_id)
         data_admissao = u.data_admissao if u else None
 
-    # Limites do mes em UTC.
+    # Limites do mes em UTC
     primeiro = datetime(ano, mes, 1, tzinfo=timezone.utc)
     _, ultimo_dia_num = monthrange(ano, mes)
     ultimo = datetime(ano, mes, ultimo_dia_num, 23, 59, 59, tzinfo=timezone.utc)
@@ -198,7 +163,7 @@ def calcular_saldo_mes(
                  .order_by(Registro.timestamp_utc)
                  .all())
 
-    # Agrupa por dia (em horario local — usa a tz do servidor).
+    # Agrupa por dia em horario local
     por_dia: dict[date, list[Registro]] = {}
     for r in registros:
         d = to_local(r.timestamp_utc).date()
@@ -216,17 +181,15 @@ def calcular_saldo_mes(
     hoje = date.today()
     for dia_num in range(1, ultimo_dia_num + 1):
         d = date(ano, mes, dia_num)
-        # Dia anterior a admissao: funcionario ainda nao fazia parte da
-        # empresa, entao nao gera esperado/falta/atraso (fica neutro).
+        # Dia anterior a admissao fica neutro (sem esperado/falta/atraso)
         pre_admissao = bool(data_admissao and d < data_admissao)
-        eh_util = (d.weekday() < 5) and not pre_admissao  # 0=seg, 4=sex
+        eh_util = (d.weekday() < 5) and not pre_admissao
         regs_dia = por_dia.get(d, [])
         trabalhado = _minutos_trabalhados_no_dia(regs_dia)
         esperado = esperado_por_util if eh_util else 0
         saldo = trabalhado - esperado
         extra = saldo if saldo > 0 else 0
         atraso = 0 if pre_admissao else _atraso_no_dia(regs_dia, jornada)
-        # Falta: dia util ja passado, sem nenhuma batida no dia.
         falta = bool(eh_util and not regs_dia and d <= hoje)
 
         dias.append({

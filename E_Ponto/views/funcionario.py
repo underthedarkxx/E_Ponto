@@ -1,19 +1,10 @@
 # pyright: reportCallIssue=false
-# =====================================================================
-# views/funcionario.py — Painel do funcionário
-# ---------------------------------------------------------------------
-# A diretiva "# pyright: reportCallIssue=false" silencia o aviso do
-# Pylance para construtores de modelos SQLAlchemy (Retificacao(...)).
-# E' uma limitacao do Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
-# ---------------------------------------------------------------------
-# Rotas voltadas ao funcionário "comum":
-#   - Dashboard com batidas do dia e histórico de retificações próprias;
-#   - Solicitar retificação de um ponto específico.
-#
-# Não há @role_required — qualquer usuário logado pode acessar.
-# A verificação fina (registro pertence a mim?) é feita dentro
-# de cada rota.
-# =====================================================================
+"""Painel do funcionario comum.
+
+Dashboard com batidas do dia, saldo de horas e historico de retificacoes,
+alem da solicitacao de retificacao de um ponto. Sem @role_required:
+qualquer usuario logado acessa, e a verificacao de posse e feita por rota.
+"""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, session
 from flask_login import login_required, current_user
@@ -33,7 +24,7 @@ bp_funcionario = Blueprint('funcionario', __name__, url_prefix='/funcionario')
 
 
 def _empresa():
-    """Empresa ativa na sessão (mesmo padrão das outras views)."""
+    """Empresa ativa na sessao."""
     empresa_id = session.get('empresa_id')
     return Business.query.get(empresa_id) if empresa_id else None
 
@@ -41,31 +32,26 @@ def _empresa():
 @bp_funcionario.route('/')
 @login_required
 def dashboard():
-    """Dashboard com batidas de hoje, saldo de horas, atrasos e calendário."""
+    """Dashboard com batidas de hoje, saldo de horas, atrasos e calendario."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
     hoje = date.today()
-    # Batidas do dia, em ordem cronológica.
     registros_hoje = (Registro.query
                       .filter_by(empresa_id=empresa.id, user_id=current_user.id)
                       .filter(db.func.date(Registro.timestamp_utc) == hoje)
                       .order_by(Registro.timestamp_utc)
                       .all())
-    # Status das próprias retificações (pendentes, aprovadas, rejeitadas).
     minhas_retificacoes = (Retificacao.query
                            .filter_by(empresa_id=empresa.id, solicitante_id=current_user.id)
                            .order_by(Retificacao.created_at.desc())
                            .limit(10).all())
 
-    # ---- Banco de horas / atrasos / faltas do mês corrente ----------
+    # Banco de horas / atrasos / faltas do mes corrente
     jornada = get_jornada_funcionario(current_user.id, empresa.id)
     resultado = calcular_saldo_mes(current_user.id, empresa.id, hoje.year, hoje.month, jornada)
-    # Indexa os dias por data para o calendário consultar rapidamente.
     dias_por_data = {d['dia']: d for d in resultado['dias']}
-    # Semanas do mês (cada semana = lista de 7 datas, incluindo dias
-    # "vazios" de meses vizinhos para completar a grade).
-    # firstweekday=0 = segunda-feira (alinha com o cabeçalho Seg..Dom).
+    # Semanas do mes (firstweekday=0 = segunda) para a grade do calendario
     semanas = calendar.Calendar(firstweekday=0).monthdatescalendar(hoje.year, hoje.month)
 
     return render_template('funcionario/dashboard.html', empresa=empresa,
@@ -82,22 +68,20 @@ def dashboard():
 @bp_funcionario.route('/retificar/<int:reg_id>', methods=['GET', 'POST'])
 @login_required
 def solicitar_retificacao(reg_id):
-    """Funcionário abre um pedido de correção para um registro seu."""
+    """Funcionario abre um pedido de correcao para um registro seu."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
 
     reg = Registro.query.get_or_404(reg_id)
 
-    # Proteção: só o dono do registro pode pedir retificação, e dentro
-    # da empresa atual.
+    # So o dono do registro, dentro da empresa atual, pode retificar
     if reg.user_id != current_user.id or reg.empresa_id != empresa.id:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('funcionario.dashboard'))
 
     form = RetificacaoForm()
     if form.validate_on_submit():
-        # Cria a retificação em estado PENDENTE. O RH vai analisar depois.
         ret = Retificacao(
             registro_id=reg.id,
             empresa_id=empresa.id,

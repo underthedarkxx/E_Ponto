@@ -1,11 +1,8 @@
-# =====================================================================
-# models/location.py — Cidade e endereço (do usuário)
-# ---------------------------------------------------------------------
-# Duas tabelas:
-#   - City: lista normalizada de cidades. Várias pessoas podem morar
-#     na mesma cidade — separar evita repetir o nome em cada Address.
-#   - Address: endereço de um usuário (FK para User e para City).
-# =====================================================================
+"""Modelos City e Address.
+
+City e uma lista normalizada de cidades; Address e o endereco de um
+usuario, com FK para User e City.
+"""
 
 from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,12 +12,10 @@ if TYPE_CHECKING:
     from .user import User
 
 
-# === City (cidade) ===
 class City(db.Model):
     __tablename__ = "cities"
 
     __table_args__ = (
-        # Índice composto para busca rápida por nome+estado+país.
         db.Index(
             "idx_city_name_state_country",
             "name",
@@ -32,38 +27,30 @@ class City(db.Model):
 
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
     name: Mapped[str] = mapped_column(db.String(100), nullable=False)
-    # Sigla do estado (ES, SP, RJ...). Opcional para cidades fora do BR.
     state: Mapped[Optional[str]] = mapped_column(db.String(2))
     country: Mapped[Optional[str]] = mapped_column(db.String(50))
-    # Região geográfica (Sudeste, Norte, etc.).
     region: Mapped[Optional[str]] = mapped_column(db.String(50))
 
-    # Endereços que pertencem a esta cidade.
     addresses: Mapped[List["Address"]] = relationship(
         "Address",
         back_populates="city"
     )
 
     def __repr__(self) -> str:
-        # Mostra "São Paulo - SP" se houver estado, senão só "São Paulo".
         return f"<City {self.name}{' - ' + self.state if self.state else ''}>"
 
 
-# === Address (endereço) ===
 class Address(db.Model):
     __tablename__ = "address"
     __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
-    # "road" = rua/logradouro. Os 4 campos são opcionais porque o
-    # cadastro pode começar vazio e ser completado depois.
     road: Mapped[Optional[str]] = mapped_column(db.String(100))
     number: Mapped[Optional[int]] = mapped_column(db.Integer)
     district: Mapped[Optional[str]] = mapped_column(db.String(100))
     zipcode: Mapped[Optional[str]] = mapped_column(db.String(15))
 
-    # Cada endereço pertence a um usuário. Se o usuário for apagado,
-    # ondelete="CASCADE" faz o banco apagar o endereço junto.
+    # CASCADE: apagar o usuario apaga seus enderecos
     user_id: Mapped[int] = mapped_column(
         db.Integer,
         db.ForeignKey("users.id", ondelete="CASCADE"),
@@ -71,8 +58,7 @@ class Address(db.Model):
         index=True
     )
 
-    # Cidade — pode ser NULL. Se a cidade for apagada, SET NULL apenas
-    # zera a referência sem perder o endereço.
+    # SET NULL: apagar a cidade apenas zera a referencia
     city_id: Mapped[int | None] = mapped_column(
         db.Integer,
         db.ForeignKey("cities.id", ondelete="SET NULL"),

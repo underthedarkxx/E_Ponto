@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>E-Ponto - Apresentação</title>
+  <style>
+    :root {
+      --ink: #132238;
+      --muted: #637083;
+      --line: #d9e2ec;
+      --paper: #f6f8fb;
+      --card: #ffffff;
+      --blue: #175cd3;
+      --blue-soft: #e8f1ff;
+      --green: #0f8a63;
+      --amber: #b4690e;
+      --shadow: 0 18px 50px rgba(20, 40, 70, .14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    .deck {
+      display: grid;
+      gap: 28px;
+      padding: 28px;
+    }
+
+    .slide {
+      position: relative;
+      width: min(1180px, 100%);
+      min-height: 660px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 8px;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+    }
+
+    .inner {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      gap: 28px;
+      padding: 54px 62px 44px;
+    }
+
+    .two {
+      grid-template-columns: 1.02fr .98fr;
+      align-items: center;
+    }
+
+    .split-top {
+      grid-template-columns: .9fr 1.1fr;
+      align-items: start;
+    }
+
+    .kicker {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 840px;
+      margin-bottom: 18px;
+      font-size: 58px;
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 18px;
+      font-size: 38px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .lead {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 21px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      max-width: 760px;
+      margin-top: 32px;
+    }
+
+    .meta div,
+    .pill,
+    .stat,
+    .card,
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .meta div {
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pill {
+      padding: 9px 12px;
+      color: #22415f;
+      background: var(--blue-soft);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      padding: 20px;
+      min-height: 150px;
+    }
+
+    .card p,
+    li {
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .number {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 12px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 800;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .stat {
+      padding: 16px;
+      background: #fbfcff;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--blue);
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    li + li { margin-top: 10px; }
+
+    .shot {
+      overflow: hidden;
+      border: 1px solid #cfd9e6;
+      border-radius: 8px;
+      background: #f9fbfd;
+      box-shadow: 0 16px 40px rgba(20, 40, 70, .12);
+    }
+
+    .shot img {
+      display: block;
+      width: 100%;
+      height: 520px;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .wide-shot img {
+      height: 380px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .flow div {
+      min-height: 116px;
+      padding: 16px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f9fbff;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .flow span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .security-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .security-list div {
+      padding: 15px 18px;
+      border-left: 5px solid var(--green);
+      border-radius: 8px;
+      background: #f4fbf8;
+      color: #244b3b;
+      font-weight: 700;
+    }
+
+    .note {
+      padding: 18px;
+      color: #5d451f;
+      background: #fff8e8;
+      border-color: #ead7ad;
+    }
+
+    .footer {
+      position: absolute;
+      right: 32px;
+      bottom: 22px;
+      left: 32px;
+      display: flex;
+      justify-content: space-between;
+      color: #8995a5;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .notes {
+      margin-top: 8px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--blue);
+      color: #31445d;
+      background: #f1f6ff;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      position: sticky;
+      z-index: 5;
+      top: 0;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      background: rgba(246, 248, 251, .92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .toolbar button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .toolbar button:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    @media (max-width: 860px) {
+      .deck { padding: 14px; }
+      .slide { min-height: auto; }
+      .inner,
+      .two,
+      .split-top {
+        grid-template-columns: 1fr;
+        padding: 36px 24px 58px;
+      }
+      h1 { font-size: 40px; }
+      h2 { font-size: 30px; }
+      .grid-3,
+      .grid-2,
+      .stats,
+      .flow,
+      .meta {
+        grid-template-columns: 1fr;
+      }
+      .shot img { height: auto; }
+      .toolbar { display: none; }
+    }
+
+    @media print {
+      @page {
+        size: 16in 9in;
+        margin: 0;
+      }
+
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .deck { gap: 0; padding: 0; }
+      .slide {
+        width: 16in;
+        height: 9in;
+        min-height: 9in;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        page-break-inside: avoid;
+        page-break-after: always;
+      }
+
+      .inner {
+        padding: .55in .7in .48in;
+      }
+
+      .notes { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar" aria-label="Controles da apresentação">
+    <button type="button" data-action="prev">Anterior</button>
+    <button type="button" data-action="next">Próximo</button>
+    <button type="button" data-action="print">Salvar em PDF</button>
+  </div>
+
+  <main class="deck">
+    <section class="slide" id="slide-1">
+      <div class="inner">
+        <div>
+          <p class="kicker">Programação Avançada para Web</p>
+          <h1>E-Ponto: Sistema Web de Registro Eletrônico de Ponto</h1>
+          <p class="lead">Uma aplicação Flask para registro de jornada, gestão de funcionários, relatórios trabalhistas e controles de segurança.</p>
+          <div class="pills">
+            <span class="pill">Flask</span>
+            <span class="pill">SQLAlchemy</span>
+            <span class="pill">Controle de acesso</span>
+            <span class="pill">Portaria MTP 671/2021</span>
+          </div>
+          <div class="meta">
+            <div><strong>Aluno</strong>Luan Miguel</div>
+            <div><strong>Professor</strong>[nome do professor]</div>
+            <div><strong>Instituição</strong>UVV</div>
+            <div><strong>Duração sugerida</strong>7 a 10 minutos</div>
+          </div>
+        </div>
+        <div class="notes">Fala: apresentar o projeto como uma solução web completa para controle de ponto, com foco em regras reais de negócio, segurança e demonstração prática.</div>
+      </div>
+      <div class="footer"><span>E-Ponto</span><span>1 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-2">
+      <div class="inner two">
+        <div>
+          <p class="kicker">Problema</p>
+          <h2>Controle de ponto precisa ser confiável, auditável e simples de usar</h2>
+          <p class="lead">Empresas precisam registrar jornada, acompanhar faltas e atrasos, corrigir inconsistências e gerar relatórios sem perder integridade dos dados.</p>
+          <div class="stats">
+            <div class="stat"><strong>4</strong><span>batidas diárias</span></div>
+            <div class="stat"><strong>RH</strong><span>gestão central</span></div>
+            <div class="stat"><strong>LGPD</strong><span>dados sensíveis</span></div>
+            <div class="stat"><strong>REP-P</strong><span>conformidade</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Necessidades atendidas</h3>
+          <ul>
+            <li>Registrar entrada, almoço, retorno e saída final.</li>
+            <li>Validar geolocalização sem bloquear indevidamente o trabalhador.</li>
+            <li>Permitir retificação com justificativa e aprovação.</li>
+            <li>Gerar relatórios para análise e auditoria.</li>
+          </ul>
+        </div>
+        <div class="notes">Fala: contextualizar que o sistema não é apenas cadastro; ele lida com jornada, evidência, segurança e regras trabalhistas.</div>
+      </div>
+      <div class="footer"><span>Problema</span><span>2 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-3">
+      <div class="inner split-top">
+        <div>
+          <p class="kicker">Solução</p>
+          <h2>Uma plataforma para funcionários, RH e administração</h2>
+          <p class="lead">O E-Ponto organiza os fluxos principais em telas separadas por papel, reduzindo erro operacional e protegendo áreas sensíveis.</p>
+          <div class="flow">
+            <div>Login<span>email, senha e 2FA opcional</span></div>
+            <div>Empresa<span>contexto ativo da sessão</span></div>
+            <div>Ponto<span>registro com data, hora e localização</span></div>
+            <div>RH<span>gestão e retificação</span></div>
+            <div>Relatórios<span>Excel, AFD e AEJ</span></div>
+          </div>
+        </div>
+        <div class="shot wide-shot">
+          <img src="e-ponto-apresentacao-assets/01-dashboard.png" alt="Dashboard do E-Ponto">
+        </div>
+        <div class="notes">Fala: mostrar que cada usuário vê o que precisa: funcionário bate ponto, RH acompanha e administrador configura o sistema.</div>
+      </div>
+      <div class="footer"><span>Solução</span><span>3 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-4">
+      <div class="inner">
+        <div>
+          <p class="kicker">Funcionalidades</p>
+          <h2>O sistema cobre o ciclo completo do ponto</h2>
+          <div class="grid-3">
+            <div class="card">
+              <span class="number">1</span>
+              <h3>Cadastro e configuração</h3>
+              <p>Empresas, funcionários, RH, jornadas e locais de trabalho com geolocalização.</p>
+            </div>
+            <div class="card">
+              <span class="number">2</span>
+              <h3>Registro diário</h3>
+              <p>Quatro batidas por dia, IP de origem, timestamp e sinalização de localização suspeita.</p>
+            </div>
+            <div class="card">
+              <span class="number">3</span>
+              <h3>Gestão pelo RH</h3>
+              <p>Listagem de registros, aprovação de retificações e acompanhamento de banco de horas.</p>
+            </div>
+            <div class="card">
+              <span class="number">4</span>
+              <h3>Dashboards</h3>
+              <p>Indicadores de saldo, atrasos, faltas, horas trabalhadas e calendário mensal.</p>
+            </div>
+            <div class="card">
+              <span class="number">5</span>
+              <h3>Relatórios</h3>
+              <p>Exportação mensal por funcionário ou equipe, incluindo arquivos legais e Excel.</p>
+            </div>
+            <div class="card">
+              <span class="number">6</span>
+              <h3>Autenticação</h3>
+              <p>Login seguro com hash bcrypt, sessões, 2FA opcional e proteção de rotas.</p>
+            </div>
+          </div>
+        </div>
+        <div class="notes">Fala: apresentar esse slide como mapa geral; não entrar em detalhes de cada tela ainda, porque a demonstração vem depois.</div>
+      </div>
+      <div class="footer"><span>Funcionalidades</span><span>4 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-5">
+      <div class="inner two">
+        <div>
+          <p class="kicker">Arquitetura</p>
+          <h2>Estrutura simples, separada por responsabilidades</h2>
+          <p class="lead">A aplicação usa Flask com Application Factory e Blueprints para organizar os módulos principais.</p>
+          <div class="grid-2">
+            <div class="card"><h3>Backend</h3><p>Flask, SQLAlchemy 2.x, Flask-Login, Flask-Migrate, Flask-WTF e Flask-Limiter.</p></div>
+            <div class="card"><h3>Frontend</h3><p>Templates Jinja2 com Bootstrap, mantendo telas responsivas e integradas ao backend.</p></div>
+            <div class="card"><h3>Organização</h3><p>Models, views, forms, extensões e utils ficam separados em pacotes próprios.</p></div>
+            <div class="card"><h3>Testes</h3><p>Suíte automatizada com pytest cobrindo autenticação, acesso, ponto, relatórios e segurança.</p></div>
+          </div>
+        </div>
+        <div class="note">
+          <h3>Modelo de dados resumido</h3>
+          <p><strong>User</strong> se relaciona com <strong>Role</strong> por meio de <strong>RoleUser</strong>. A empresa define o contexto ativo, e os registros de ponto ficam vinculados ao usuário e à empresa.</p>
+        </div>
+        <div class="notes">Fala: explicar que a arquitetura facilita manutenção: cada parte do sistema tem seu lugar e os testes protegem mudanças futuras.</div>
+      </div>
+      <div class="footer"><span>Arquitetura</span><span>5 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-6">
+      <div class="inner split-top">
+        <div>
+          <p class="kicker">Segurança</p>
+          <h2>Segurança foi tratada como requisito do sistema</h2>
+          <div class="security-list">
+            <div>Controle de acesso por papel: super_admin, admin, RH e funcionário.</div>
+            <div>Proteção contra CSRF, SQL Injection, XSS, IDOR e escalada de privilégio.</div>
+            <div>Correção de Open Redirect no login com validação do parâmetro next.</div>
+            <div>Senhas com bcrypt, mensagem genérica de erro e 2FA opcional.</div>
+            <div>Rate limiting nas rotas sensíveis e testes de invasão automatizados.</div>
+          </div>
+        </div>
+        <div>
+          <div class="stat" style="margin-bottom: 14px;"><strong>122</strong><span>testes automatizados passando</span></div>
+          <div class="stat" style="margin-bottom: 14px;"><strong>11</strong><span>testes de invasão</span></div>
+          <div class="stat"><strong>0</strong><span>falhas abertas no relatório de segurança</span></div>
+        </div>
+        <div class="notes">Fala: destacar que houve uma vulnerabilidade real encontrada, corrigida e coberta por regressão. Isso mostra maturidade do projeto.</div>
+      </div>
+      <div class="footer"><span>Segurança</span><span>6 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-7">
+      <div class="inner two">
+        <div>
+          <p class="kicker">Conformidade</p>
+          <h2>O registro precisa preservar evidência e rastreabilidade</h2>
+          <p class="lead">O sistema considera requisitos ligados à Portaria MTP 671/2021 e à auditoria de ponto.</p>
+          <ul>
+            <li>Registros armazenam data/hora, tipo de batida, usuário, empresa, IP e localização.</li>
+            <li>NSR mantém sequência única por empresa.</li>
+            <li>Cadeia de hashes SHA-256 detecta adulteração em registros.</li>
+            <li>Retificações exigem justificativa e fluxo de aprovação.</li>
+            <li>Relatórios legais AFD e AEJ apoiam a prestação de contas.</li>
+          </ul>
+        </div>
+        <div class="shot">
+          <img src="e-ponto-apresentacao-assets/04-relatorios.png" alt="Tela de relatórios do RH no E-Ponto">
+        </div>
+        <div class="notes">Fala: deixar claro que localização suspeita não impede a batida; ela sinaliza para análise, preservando o fato trabalhista.</div>
+      </div>
+      <div class="footer"><span>Conformidade</span><span>7 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-8">
+      <div class="inner">
+        <div>
+          <p class="kicker">Demonstração prática</p>
+          <h2>Roteiro sugerido para mostrar ao professor</h2>
+          <div class="grid-2">
+            <div class="card">
+              <h3>1. Login automático</h3>
+              <p>Entrar no sistema sem perder tempo digitando credenciais durante a apresentação.</p>
+            </div>
+            <div class="card">
+              <h3>2. Cadastro de local</h3>
+              <p>Mostrar nome do local, latitude, longitude e raio de validação geográfica.</p>
+            </div>
+            <div class="card">
+              <h3>3. Registro de ponto</h3>
+              <p>Demonstrar a tela de batida e explicar as quatro marcações do dia.</p>
+            </div>
+            <div class="card">
+              <h3>4. RH e relatórios</h3>
+              <p>Mostrar consultas, relatórios e como o RH acompanha exceções e retificações.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="shot wide-shot"><img src="e-ponto-apresentacao-assets/02-local-trabalho.png" alt="Tela de cadastro de local de trabalho"></div>
+          <div class="shot wide-shot"><img src="e-ponto-apresentacao-assets/03-bater-ponto.png" alt="Tela de bater ponto"></div>
+        </div>
+        <div class="notes">Fala: esse slide vira sua cola. Execute os quatro passos nessa ordem e volte aos slides se precisar explicar o porquê técnico.</div>
+      </div>
+      <div class="footer"><span>Demonstração</span><span>8 / 9</span></div>
+    </section>
+
+    <section class="slide" id="slide-9">
+      <div class="inner two">
+        <div>
+          <p class="kicker">Conclusão</p>
+          <h2>O E-Ponto entrega uma solução funcional, segura e defensável</h2>
+          <p class="lead">O projeto combina implementação web, regras de negócio trabalhistas, autenticação, autorização, testes e documentação de segurança.</p>
+          <ul>
+            <li>Resolve um problema real de controle de jornada.</li>
+            <li>Separa responsabilidades entre funcionário, RH e administração.</li>
+            <li>Inclui controles de segurança testados automaticamente.</li>
+            <li>Permite demonstração prática com dados locais.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Fechamento sugerido</h3>
+          <p>"O objetivo do E-Ponto foi transformar uma necessidade trabalhista em uma aplicação web completa, com foco em usabilidade, segurança e rastreabilidade dos registros."</p>
+        </div>
+        <div class="notes">Fala: encerrar reforçando que o diferencial está na combinação de funcionalidades, segurança e conformidade, não apenas na interface.</div>
+      </div>
+      <div class="footer"><span>Conclusão</span><span>9 / 9</span></div>
+    </section>
+  </main>
+
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    let index = 0;
+
+    function goTo(next) {
+      index = Math.max(0, Math.min(slides.length - 1, next));
+      slides[index].scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown") goTo(index + 1);
+      if (event.key === "ArrowLeft" || event.key === "PageUp") goTo(index - 1);
+      if (event.key === "Home") goTo(0);
+      if (event.key === "End") goTo(slides.length - 1);
+    });
+
+    document.querySelector('[data-action="prev"]').addEventListener("click", () => goTo(index - 1));
+    document.querySelector('[data-action="next"]').addEventListener("click", () => goTo(index + 1));
+    document.querySelector('[data-action="print"]').addEventListener("click", () => window.print());
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) index = slides.indexOf(visible.target);
+    }, { threshold: [0.45, 0.7] });
+
+    slides.forEach((slide) => observer.observe(slide));
+  </script>
+</body>
+</html>

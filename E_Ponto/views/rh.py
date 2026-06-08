@@ -1,19 +1,15 @@
-# =====================================================================
-# views/rh.py — Painel do RH
-# ---------------------------------------------------------------------
-# Rotas para o RH:
-#   - Dashboard com KPIs (registros do dia, retificações pendentes...);
-#   - Listagem e filtros de registros de todos os funcionários;
-#   - Análise/aprovação de retificações;
-#   - Download dos arquivos AFD (diário) e AEJ (mensal) exigidos pela
-#     Portaria 671/2021.
-# =====================================================================
+"""Painel do RH.
+
+Dashboard com KPIs, listagem/filtros de registros, analise de
+retificacoes, banco de horas e download dos arquivos AFD/AEJ exigidos
+pela Portaria 671/2021.
+"""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session, send_file, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, timezone, date
 from io import BytesIO
-import calendar  # usado para descobrir o último dia do mês
+import calendar
 
 from E_Ponto.ext.db import db
 from E_Ponto.models.business import Business
@@ -23,8 +19,8 @@ from E_Ponto.models.user import User
 from E_Ponto.models.role_user import RoleUser
 from E_Ponto.models.audit_log import AuditLog
 from E_Ponto.utils.decorators import role_required
-from E_Ponto.utils.afd import gerar_afd   # gera arquivo AFD (formato texto)
-from E_Ponto.utils.aej import gerar_aej   # gera arquivo AEJ (formato texto)
+from E_Ponto.utils.afd import gerar_afd
+from E_Ponto.utils.aej import gerar_aej
 from E_Ponto.utils.audit import log_action
 from E_Ponto.utils.mail import send_notification
 from E_Ponto.utils.banco_horas import (
@@ -38,7 +34,7 @@ bp_rh = Blueprint('rh', __name__, url_prefix='/rh')
 
 
 def _empresa():
-    """Mesmo helper das outras views — empresa ativa na sessão."""
+    """Empresa ativa na sessao."""
     empresa_id = session.get('empresa_id')
     return Business.query.get(empresa_id) if empresa_id else None
 
@@ -51,16 +47,13 @@ def dashboard():
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
-    # Retificações esperando decisão.
     pendentes = Retificacao.query.filter_by(
         empresa_id=empresa.id, status=StatusRetificacao.PENDENTE
     ).count()
-    # Total de batidas hoje.
     total_hoje = (Registro.query
                   .filter_by(empresa_id=empresa.id)
                   .filter(db.func.date(Registro.timestamp_utc) == date.today())
                   .count())
-    # Registros que foram marcados como suspeitos por geolocalização.
     suspeitos = (Registro.query
                  .filter_by(empresa_id=empresa.id, suspeito_geo=True)
                  .count())
@@ -73,17 +66,15 @@ def dashboard():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def registros():
-    """Lista todos os registros com filtros opcionais (usuário e data)."""
+    """Lista todos os registros com filtros opcionais (usuario e data)."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
 
-    # Lê parâmetros da query string (?page=&user_id=&data=).
     page = request.args.get('page', 1, type=int)
     user_id = request.args.get('user_id', type=int)
     data_str = request.args.get('data')
 
-    # Monta a query incrementalmente, aplicando filtros se vierem.
     q = Registro.query.filter_by(empresa_id=empresa.id)
     if user_id:
         q = q.filter_by(user_id=user_id)
@@ -92,13 +83,12 @@ def registros():
             d = date.fromisoformat(data_str)
             q = q.filter(db.func.date(Registro.timestamp_utc) == d)
         except ValueError:
-            # Data mal formatada: ignora o filtro silenciosamente.
+            # Data mal formatada: ignora o filtro
             pass
 
-    # Pagina o resultado.
     registros_pag = q.order_by(Registro.timestamp_utc.desc()).paginate(page=page, per_page=50)
 
-    # Lista de funcionários — popula o <select> de filtro no template.
+    # Funcionarios para o <select> de filtro
     funcionarios = (User.query
                     .join(RoleUser, RoleUser.user_id == User.id)
                     .filter(RoleUser.business_id == empresa.id)
@@ -115,7 +105,7 @@ def registros():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def retificacoes():
-    """Lista retificações pendentes (em destaque) e histórico das últimas 50."""
+    """Lista retificacoes pendentes e o historico das ultimas 50."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
@@ -136,11 +126,11 @@ def retificacoes():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def decidir_retificacao(ret_id):
-    """Tela onde o RH aprova ou rejeita uma retificação."""
+    """Tela onde o RH aprova ou rejeita uma retificacao."""
     empresa = _empresa()
     ret = Retificacao.query.get_or_404(ret_id)
 
-    # Proteção contra acesso a retificação de outra empresa.
+    # Protecao contra acesso a retificacao de outra empresa
     if ret.empresa_id != empresa.id:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('rh.retificacoes'))
@@ -151,22 +141,20 @@ def decidir_retificacao(ret_id):
         ret.observacao_aprovador = form.observacao.data
         ret.aprovado_at = datetime.now(timezone.utc)
 
-        # Estado anterior pro audit log (capturar ANTES da mudanca).
+        # Captura o status antes da mudanca (para o audit log)
         status_antes = ret.status.value
 
-        # A escolha do <select> determina o novo status.
         novo_registro = None
         if form.acao.data == 'aprovar':
             ret.status = StatusRetificacao.APROVADA
             acao_audit = 'APROVAR_RETIFICACAO'
             flash('Retificação aprovada.', 'success')
 
-            # Materializa a correção: cria um novo Registro tipo ALTERACAO
-            # com o horário aprovado, encadeado no hash chain. O registro
-            # original NUNCA é apagado (rastreabilidade/auditoria).
+            # Materializa a correcao como um novo Registro ALTERACAO no
+            # hash chain; o original nunca e apagado (auditoria)
             if ret.novo_timestamp:
                 func_user = ret.registro.user
-                # O funcionário informou hora LOCAL; convertemos para UTC.
+                # O funcionario informou hora local; converte para UTC
                 ts_utc = ret.novo_timestamp.astimezone(timezone.utc)
                 ultimo = (Registro.query
                           .filter_by(empresa_id=empresa.id)
@@ -209,8 +197,7 @@ def decidir_retificacao(ret_id):
         )
         db.session.commit()
 
-        # Notifica o solicitante por e-mail (em dev so loga no console).
-        # Erro de envio nao deve impedir o fluxo: try/except amplo.
+        # Notifica o solicitante; falha de envio nao bloqueia o fluxo
         try:
             solicitante = User.query.get(ret.solicitante_id)
             if solicitante and solicitante.email:
@@ -253,14 +240,13 @@ def auditoria():
 
     logs = q.order_by(AuditLog.created_at.desc()).paginate(page=page, per_page=50)
 
-    # Acoes distintas para popular o filtro do template.
+    # Acoes distintas para o filtro do template
     acoes_distintas = [
         a[0] for a in db.session.query(AuditLog.acao)
         .filter_by(empresa_id=empresa.id)
         .distinct().order_by(AuditLog.acao).all()
     ]
 
-    # Funcionarios da empresa para o filtro por usuario.
     funcionarios = (User.query
                     .join(RoleUser, RoleUser.user_id == User.id)
                     .filter(RoleUser.business_id == empresa.id)
@@ -300,7 +286,6 @@ def banco_horas():
     funcionario_sel = None
     if user_id:
         funcionario_sel = User.query.get(user_id)
-        # Jornada vinculada ao funcionario via Escala (fallback: padrao da empresa).
         jornada = get_jornada_funcionario(user_id, empresa.id)
         resultado = calcular_saldo_mes(user_id, empresa.id, ano, mes, jornada)
 
@@ -318,7 +303,7 @@ def banco_horas():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def banco_horas_excel():
-    """Exporta o banco de horas de um funcionario (mes) em Excel (.xlsx)."""
+    """Exporta o banco de horas de um funcionario (mes) em Excel."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
@@ -348,7 +333,7 @@ def banco_horas_excel():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def download_frequencia_excel():
-    """Exporta um resumo de frequencia/horas extras de toda a equipe no mes."""
+    """Exporta um resumo de frequencia/horas extras da equipe no mes."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
@@ -384,11 +369,10 @@ def download_frequencia_excel():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def relatorios():
-    """Tela com os botões de download dos relatórios (AFD / AEJ)."""
+    """Tela com os botoes de download dos relatorios (AFD / AEJ)."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
-    # Passa datas padrão para os inputs do formulário.
     return render_template('rh/relatorios.html', empresa=empresa,
                            hoje=date.today().isoformat(),
                            primeiro_dia_mes=date.today().replace(day=1).isoformat(),
@@ -399,12 +383,11 @@ def relatorios():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def download_afd():
-    """Gera e baixa o AFD (Arquivo Fonte de Dados) no período pedido."""
+    """Gera e baixa o AFD (Arquivo Fonte de Dados) no periodo pedido."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
 
-    # Datas vêm como YYYY-MM-DD na query string.
     data_inicio_str = request.args.get('inicio', date.today().replace(day=1).isoformat())
     data_fim_str = request.args.get('fim', date.today().isoformat())
     try:
@@ -414,7 +397,7 @@ def download_afd():
         flash('Datas inválidas.', 'danger')
         return redirect(url_for('rh.relatorios'))
 
-    # Busca todos os registros do período, ORDENADOS POR NSR (sequencial).
+    # Registros do periodo ordenados por NSR (sequencial)
     registros = (Registro.query
                  .filter_by(empresa_id=empresa.id)
                  .filter(db.func.date(Registro.timestamp_utc) >= data_inicio)
@@ -422,10 +405,9 @@ def download_afd():
                  .order_by(Registro.nsr)
                  .all())
 
-    # gerar_afd retorna o texto formatado conforme layout AFD.
     conteudo = gerar_afd(empresa, registros, data_inicio, data_fim)
 
-    # Envia como arquivo de texto ASCII (exigência do layout AFD).
+    # AFD e texto ASCII
     return send_file(
         BytesIO(conteudo.encode('ascii', errors='replace')),
         mimetype='text/plain',
@@ -438,23 +420,22 @@ def download_afd():
 @login_required
 @role_required('rh', 'admin', 'super_admin')
 def download_aej():
-    """Gera e baixa o AEJ (Arquivo Eletrônico de Jornada) do mês."""
+    """Gera e baixa o AEJ (Arquivo Eletronico de Jornada) do mes."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
 
-    # Período no formato "YYYY-MM" (ex.: "2025-11").
+    # Periodo no formato "YYYY-MM"
     periodo = request.args.get('periodo', date.today().strftime('%Y-%m'))
     try:
         ano, mes = map(int, periodo.split('-'))
         data_inicio = date(ano, mes, 1)
-        # monthrange(ano, mes) -> (dia_semana_do_dia_1, ultimo_dia).
         data_fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
     except (ValueError, AttributeError):
         flash('Período inválido.', 'danger')
         return redirect(url_for('rh.relatorios'))
 
-    # Para o AEJ precisamos agrupar registros POR FUNCIONÁRIO.
+    # AEJ agrupa registros por funcionario
     funcionarios = (User.query
                     .join(RoleUser, RoleUser.user_id == User.id)
                     .filter(RoleUser.business_id == empresa.id)
@@ -468,7 +449,7 @@ def download_aej():
                 .filter(db.func.date(Registro.timestamp_utc) <= data_fim)
                 .order_by(Registro.timestamp_utc)
                 .all())
-        # Só inclui funcionários que tiveram batidas no período.
+        # So inclui quem teve batidas no periodo
         if regs:
             funcionarios_registros.append((user, regs))
 

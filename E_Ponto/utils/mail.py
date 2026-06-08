@@ -1,12 +1,8 @@
-# =====================================================================
-# utils/mail.py — Helper para envio de e-mails
-# ---------------------------------------------------------------------
-# Centraliza o envio para que as views nao precisem conhecer Flask-Mail.
-#
-# Em dev (MAIL_SUPPRESS_SEND=True), as mensagens nao saem pelo SMTP —
-# apenas aparecem no log do Flask. Isso evita precisar configurar
-# senha de Gmail/SMTP durante desenvolvimento.
-# =====================================================================
+"""Helper para envio de e-mails.
+
+Centraliza o uso do Flask-Mail. Em dev (MAIL_SUPPRESS_SEND=True) as
+mensagens nao saem pelo SMTP, apenas aparecem no log.
+"""
 
 from typing import Optional, Any
 from flask import current_app, render_template
@@ -21,21 +17,15 @@ def send_notification(
     template: str,
     **context: Any,
 ) -> Optional[Message]:
-    """
-    Envia um e-mail renderizando dois templates Jinja:
-      - templates/emails/<template>.txt   (corpo texto puro)
-      - templates/emails/<template>.html  (corpo HTML, opcional)
+    """Envia um e-mail renderizando templates/emails/<template>.{txt,html}.
 
-    Parametros:
-        to        Endereco(s) destinatario(s).
-        subject   Assunto da mensagem.
-        template  Nome base do template em templates/emails/ (sem ext).
-        context   Variaveis passadas para o Jinja.
+    to        Destinatario(s).
+    subject   Assunto.
+    template  Nome base do template em templates/emails/ (sem extensao).
+    context   Variaveis passadas ao Jinja.
 
-    Retorna:
-        A Message enviada, ou None se nao houver MAIL_SERVER configurado.
+    Retorna a Message enviada, ou None se nao houver MAIL_SERVER.
     """
-    # Sem MAIL_SERVER nao tem pra onde mandar — apenas loga e sai.
     if not current_app.config.get('MAIL_SERVER'):
         current_app.logger.info(
             f'[MAIL skip] sem MAIL_SERVER configurado. Iria enviar para '
@@ -46,12 +36,11 @@ def send_notification(
     recipients = [to] if isinstance(to, str) else to
     msg = Message(subject=subject, recipients=recipients)
 
-    # Corpo texto sempre. Corpo HTML opcional.
+    # Corpo texto sempre; HTML opcional
     msg.body = render_template(f'emails/{template}.txt', **context)
     try:
         msg.html = render_template(f'emails/{template}.html', **context)
     except Exception:
-        # Sem template HTML: tudo bem, fica so com texto.
         pass
 
     mail.send(msg)

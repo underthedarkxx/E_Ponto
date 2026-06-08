@@ -1,26 +1,16 @@
 # pyright: reportCallIssue=false
-# =====================================================================
-# views/admin.py — Painel do administrador
-# ---------------------------------------------------------------------
-# A diretiva "# pyright: reportCallIssue=false" no topo silencia o
-# aviso do Pylance para construtores de modelos SQLAlchemy (ex.:
-# User(name=..., email=...)), Role(name=...), RoleUser(...)) — limitacao
-# do Pylance ao ler Mapped[...] via Flask-SQLAlchemy.
-# ---------------------------------------------------------------------
-# Rotas para o admin gerenciar:
-#   - usuários (vincular pessoas à empresa);
-#   - locais de trabalho (endereços com geofence);
-#   - jornadas (tipos de horário de trabalho).
-#
-# Todas as rotas são protegidas por @role_required('admin', 'super_admin').
-# =====================================================================
+"""Painel do administrador.
+
+Gerencia usuarios (vinculo a empresa), locais de trabalho (com geofence)
+e jornadas. Todas as rotas exigem @role_required('admin', 'super_admin').
+"""
 
 from flask import (Blueprint, render_template, redirect, url_for, flash,
                    session, current_app)
 from flask_login import login_required
 from flask_bcrypt import generate_password_hash
 from werkzeug.utils import secure_filename
-import secrets  # gera senhas/temporais criptograficamente seguras
+import secrets
 import os
 from datetime import date
 
@@ -38,11 +28,11 @@ from E_Ponto.forms.admin import UsuarioForm, LocalTrabalhoForm, JornadaForm
 
 
 def _salvar_foto(file_storage) -> str | None:
-    """Salva a foto enviada em static/uploads/avatars e retorna o caminho
-    relativo a /static (ou None se nada foi enviado)."""
+    """Salva a foto em static/uploads/avatars e retorna o caminho relativo
+    a /static (ou None se nada foi enviado)."""
     if not file_storage or not getattr(file_storage, 'filename', ''):
         return None
-    # Nome seguro + sufixo aleatório para evitar colisões/sobrescrita.
+    # Nome seguro + sufixo aleatorio para evitar colisoes
     nome = secure_filename(file_storage.filename)
     base, ext = os.path.splitext(nome)
     nome_final = f"{base}_{secrets.token_hex(4)}{ext.lower()}"
@@ -50,7 +40,6 @@ def _salvar_foto(file_storage) -> str | None:
     pasta_abs = os.path.join(current_app.static_folder, pasta_rel)
     os.makedirs(pasta_abs, exist_ok=True)
     file_storage.save(os.path.join(pasta_abs, nome_final))
-    # Caminho relativo usado em url_for('static', filename=...).
     return os.path.join(pasta_rel, nome_final).replace('\\', '/')
 
 
@@ -58,7 +47,7 @@ bp_admin = Blueprint('admin', __name__, url_prefix='/admin')
 
 
 def _empresa():
-    """Mesmo helper de views/ponto.py — recupera a empresa da sessão."""
+    """Empresa ativa na sessao."""
     empresa_id = session.get('empresa_id')
     return Business.query.get(empresa_id) if empresa_id else None
 
@@ -67,11 +56,10 @@ def _empresa():
 @login_required
 @role_required('admin', 'super_admin')
 def dashboard():
-    """Dashboard do admin: KPIs principais da empresa selecionada."""
+    """Dashboard do admin: KPIs da empresa selecionada."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
-    # Contadores que aparecem nos "cards" da dashboard.
     total_users = RoleUser.query.filter_by(business_id=empresa.id).count()
     total_locais = LocalTrabalho.query.filter_by(empresa_id=empresa.id, ativo=True).count()
     total_jornadas = Jornada.query.filter_by(empresa_id=empresa.id, ativo=True).count()
@@ -84,11 +72,10 @@ def dashboard():
 @login_required
 @role_required('admin', 'super_admin')
 def usuarios():
-    """Lista todos os usuários vinculados à empresa."""
+    """Lista os usuarios vinculados a empresa."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
-    # Filtra por business_id e ordena pelo nome do usuário.
     assocs = (RoleUser.query
               .filter_by(business_id=empresa.id)
               .join(User, User.id == RoleUser.user_id)
@@ -101,26 +88,23 @@ def usuarios():
 @login_required
 @role_required('admin', 'super_admin')
 def novo_usuario():
-    """Cria um usuário OU vincula um já existente à empresa atual."""
+    """Cria um usuario OU vincula um ja existente a empresa atual."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
     form = UsuarioForm()
-    # Popula o <select> de jornadas com as jornadas ativas da empresa.
-    # 0 = "sem jornada definida".
+    # <select> de jornadas ativas da empresa (0 = sem jornada)
     jornadas = Jornada.query.filter_by(empresa_id=empresa.id, ativo=True).order_by(Jornada.nome).all()
     form.jornada_id.choices = [(0, 'Sem jornada definida')] + [(j.id, j.nome) for j in jornadas]
 
     if form.validate_on_submit():
         email = form.email.data.lower()
-        # Foto enviada (se houver) — salva no static e guarda o caminho.
         foto_path = _salvar_foto(form.photo.data)
-        # Tenta achar usuário com esse email — pode já existir em outra empresa.
+        # O usuario pode ja existir (vinculado a outra empresa)
         user = User.query.filter_by(email=email).first()
         senha_temp = None
         if not user:
-            # Não existe: cria com senha temporária aleatória.
-            # secrets.token_urlsafe é seguro para uso em produção.
+            # Novo usuario: cria com senha temporaria aleatoria
             senha_temp = secrets.token_urlsafe(10)
             user = User(
                 name=form.name.data,
@@ -130,18 +114,14 @@ def novo_usuario():
                 phone=form.phone.data or None,
                 cargo=form.cargo.data or None,
                 photo=foto_path,
-                # Data de admissão: usa a do formulário ou, se vazia, hoje.
                 data_admissao=form.data_admissao.data or date.today(),
-                # generate_password_hash retorna bytes — .decode() vira str.
                 password=generate_password_hash(senha_temp).decode(),
                 is_active=form.is_active.data,
             )
             db.session.add(user)
-            # flush() escreve no banco mas não commita — assim já
-            # temos user.id para usar abaixo.
-            db.session.flush()
+            db.session.flush()  # garante user.id
         else:
-            # Usuário já existe: atualiza cargo/foto/admissão se vieram.
+            # Usuario existente: atualiza cargo/foto/admissao se vieram
             if form.cargo.data:
                 user.cargo = form.cargo.data
             if foto_path:
@@ -149,14 +129,14 @@ def novo_usuario():
             if form.data_admissao.data:
                 user.data_admissao = form.data_admissao.data
 
-        # Garante que o Role existe (criação preguiçosa).
+        # Cria o Role se ainda nao existir
         role = Role.query.filter_by(name=form.role.data).first()
         if not role:
             role = Role(name=form.role.data)
             db.session.add(role)
             db.session.flush()
 
-        # Evita criar duplicata: só insere a associação se ainda não existe.
+        # Insere a associacao apenas se nao houver duplicata
         existing = RoleUser.query.filter_by(
             user_id=user.id, business_id=empresa.id, role_id=role.id
         ).first()
@@ -164,8 +144,7 @@ def novo_usuario():
             assoc = RoleUser(user_id=user.id, business_id=empresa.id, role_id=role.id)
             db.session.add(assoc)
 
-        # Vincula a jornada via Escala (horário contratual do funcionário).
-        # Fecha escalas ativas anteriores e abre uma nova vigente a partir de hoje.
+        # Vincula a jornada via Escala: fecha as ativas e abre uma nova
         if form.jornada_id.data:
             EscalaFuncionario.query.filter_by(
                 user_id=user.id, empresa_id=empresa.id, ativo=True
@@ -191,7 +170,7 @@ def novo_usuario():
         )
         db.session.commit()
 
-        # Mostra a senha temporária para o admin repassar ao usuário.
+        # Exibe a senha temporaria para o admin repassar
         if senha_temp:
             flash(f'Usuário {user.name} criado. Senha temporária: {senha_temp}', 'info')
         else:
@@ -232,7 +211,6 @@ def novo_local():
             cep=form.cep.data or None,
             latitude=form.latitude.data,
             longitude=form.longitude.data,
-            # Se o usuário não preencheu, usa 200m de padrão.
             raio_metros=form.raio_metros.data or 200,
         )
         db.session.add(local)
@@ -259,10 +237,8 @@ def editar_local(local_id):
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))
-    # first_or_404 + filtro por empresa: garante que o admin só edita
-    # locais da PRÓPRIA empresa (evita acesso a id de outra empresa).
+    # Filtro por empresa garante que o admin so edita locais da propria empresa
     local = LocalTrabalho.query.filter_by(id=local_id, empresa_id=empresa.id).first_or_404()
-    # obj=local pré-preenche o formulário com os valores atuais.
     form = LocalTrabalhoForm(obj=local)
     if form.validate_on_submit():
         local.nome = form.nome.data
@@ -292,8 +268,7 @@ def editar_local(local_id):
 @login_required
 @role_required('admin', 'super_admin')
 def toggle_local(local_id):
-    """Ativa/desativa um local (soft-delete): preserva o histórico de
-    pontos que apontam para ele e permite reativar depois."""
+    """Ativa/desativa um local (soft-delete), preservando o historico."""
     empresa = _empresa()
     if not empresa:
         return redirect(url_for('main.index'))

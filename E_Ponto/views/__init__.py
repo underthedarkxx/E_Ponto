@@ -1,19 +1,9 @@
-# =====================================================================
-# views/__init__.py — Registro de todos os Blueprints da aplicação
-# ---------------------------------------------------------------------
-# Cada Blueprint agrupa rotas relacionadas (auth, ponto, admin, etc.).
-# A função `init_app()` é chamada por `create_app()` no app.py e
-# garante que todos eles fiquem registrados no Flask.
-# =====================================================================
+"""Registro de todos os Blueprints e extensoes que dependem do app.
 
-"""
-Views representam a camada de apresentacao da aplicacao.
-Responsaveis por definir rotas e retornar respostas HTTP ao cliente.
+init_app() e chamada por create_app() (app.py) e liga as rotas de cada
+blueprint (auth, main, ponto, admin, rh, funcionario) ao Flask.
 """
 
-# Importa cada Blueprint dos módulos correspondentes.
-# O `bcrypt` é importado junto porque mora em auth.py — precisamos
-# inicializá-lo aqui.
 from E_Ponto.views.main import bp_main
 from E_Ponto.views.auth import bp_auth, bcrypt
 from E_Ponto.views.ponto import bp_ponto
@@ -26,7 +16,7 @@ from flask import render_template
 
 
 def _register_error_handlers(app):
-    """Páginas de erro amigáveis (mantêm o visual do sistema)."""
+    """Paginas de erro amigaveis (mantem o visual do sistema)."""
     @app.errorhandler(403)
     def forbidden(e):
         return render_template('errors/403.html'), 403
@@ -37,8 +27,7 @@ def _register_error_handlers(app):
 
     @app.errorhandler(500)
     def internal_error(e):
-        # Desfaz qualquer transação meio-aberta para que a sessão volte
-        # a um estado utilizável (o navbar do template consulta o banco).
+        # Desfaz transacoes meio-abertas para a sessao voltar a um estado usavel
         from E_Ponto.ext.db import db
         db.session.rollback()
         app.logger.exception('Erro interno (500)')
@@ -46,21 +35,16 @@ def _register_error_handlers(app):
 
 
 def init_app(app):
-    """
-    Registra todos os blueprints e extensoes que dependem do app.
-    """
-    # Bcrypt cria os hashes de senha. Precisa receber o app para usar
-    # configurações como o SALT do bcrypt.
+    """Registra os blueprints, filtros Jinja e handlers de erro."""
+    # Bcrypt gera os hashes de senha; mora em auth.py
     bcrypt.init_app(app)
 
-    # Filtros Jinja para exibir horarios em fuso local (UTC -> local).
-    #   {{ dt|localtime }}        -> objeto datetime aware no fuso local
+    # Filtros Jinja para exibir horarios em fuso local
+    #   {{ dt|localtime }}        -> datetime aware no fuso local
     #   {{ dt|localdt('%H:%M') }} -> string ja formatada
     app.add_template_filter(to_local, 'localtime')
     app.add_template_filter(fmt_local, 'localdt')
 
-    # Registrar = "ligar" o Blueprint ao Flask. A partir daqui as URLs
-    # de cada um ficam ativas (/auth/..., /ponto/..., /admin/...).
     app.register_blueprint(bp_auth)
     app.register_blueprint(bp_main)
     app.register_blueprint(bp_ponto)
@@ -68,7 +52,6 @@ def init_app(app):
     app.register_blueprint(bp_rh)
     app.register_blueprint(bp_funcionario)
 
-    # Páginas de erro 403/404/500 customizadas.
     _register_error_handlers(app)
 
     app.logger.info("Blueprints registrados: auth, main, ponto, admin, rh, funcionario")

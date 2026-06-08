@@ -1,57 +1,35 @@
-# =====================================================================
-# ext/db — Banco de dados (SQLAlchemy)
-# ---------------------------------------------------------------------
-# Mantém a instância única do SQLAlchemy (`db`) que é compartilhada
-# por todos os modelos do projeto. Também oferece `register_models()`
-# para garantir que todas as classes de modelo sejam importadas antes
-# do SQLAlchemy precisar do metadata (ex.: para criar tabelas).
-# =====================================================================
+"""ext/db: instancia unica do SQLAlchemy compartilhada pelos modelos.
+
+Tambem oferece register_models() para garantir que todas as classes de
+modelo sejam importadas antes de o SQLAlchemy precisar do metadata.
+"""
 
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 
 
-# Base customizada herdando de DeclarativeBase.
-# ----------------------------------------------------------------------
-# Por que precisamos disso?
-#   O Flask-SQLAlchemy 3.1+ aceita uma classe base personalizada via
-#   `model_class=`. Quando essa base herda de DeclarativeBase (SQLAlchemy
-#   2.0+), o Pylance consegue ler os campos `Mapped[...]` dos modelos e
-#   inferir automaticamente os parâmetros do construtor.
-#
-#   Sem isso, o `db.Model` padrão é "destipado" e o Pylance acusa
-#   "Nenhum parâmetro chamado 'corporate_name'" em chamadas como
-#   `Business(corporate_name="...", ...)`, mesmo o código rodando.
+# Base herdando de DeclarativeBase (SQLAlchemy 2.0): permite ao Pylance
+# inferir os parametros do construtor a partir dos campos Mapped[...].
 class Base(DeclarativeBase):
     pass
 
 
-# Singleton da extensão. Os modelos importam este objeto:
-#     from E_Ponto.ext.db import db
-#     class Foo(db.Model): ...
+# Singleton importado pelos modelos: `from E_Ponto.ext.db import db`
 db = SQLAlchemy(model_class=Base)
 
 
 def init_app(app):
-    """Conecta a extensão SQLAlchemy à instância do Flask."""
+    """Conecta a extensao SQLAlchemy a instancia do Flask."""
     db.init_app(app)
 
 
 def register_models():
-    """
-    Importa todos os módulos de modelo do projeto.
+    """Importa todos os modulos de modelo.
 
-    Por quê isto é necessário?
-        O SQLAlchemy só "conhece" um modelo depois que a classe é
-        importada (porque é a importação que dispara a metaclass que
-        registra a tabela no metadata). Como criamos a aplicação via
-        factory, precisamos forçar essa importação manualmente — caso
-        contrário, comandos como `db.create_all()` ou migrações podem
-        ignorar tabelas que nunca foram referenciadas em código.
-
-    A ordem dos imports importa parcialmente: modelos referenciados
-    por chaves estrangeiras (Role, User, Business...) vêm primeiro,
-    e os que dependem deles vêm depois.
+    Necessario porque o SQLAlchemy so registra uma tabela quando a classe
+    e importada. Como usamos factory, forcamos a importacao aqui para que
+    db.create_all()/migracoes nao ignorem tabelas. Modelos referenciados
+    por FKs vem primeiro.
     """
     import E_Ponto.models.role
     import E_Ponto.models.user
